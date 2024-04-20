@@ -1,0 +1,18 @@
+#sidebar {
+    /* dock: right; */
+    text-align: center;
+    text-style: bold;
+    width: 20%;
+    height: 100%;
+}
+
+#menu-text {
+    text-align: center;
+    width: 20%;
+}
+
+.menu-button {
+    text-align: center;
+    width: 20%;
+}
+

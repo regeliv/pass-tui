@@ -1,3 +1,45 @@
+from time import sleep
+from textual.app import App, ComposeResult
+from textual.containers import Vertical, Horizontal
+from textual.widgets import Header, Footer, Button, Static, DataTable
+
+class Pass(App):
+    CSS_PATH="styles.css"
+    BINDINGS = [("d","toggle_dark",  "Toggle dark mode")]
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        # yield Vertical(
+        #     Static("Menu"),
+        #     Button("New"),
+        #     Button("Edit"),
+        #     Button("Move"),
+        #     id="sidebar"
+        # )
+        with Horizontal():
+            with Vertical(id="sidebar"):
+                for action in ("New", "Edit", "Move"):
+                    yield Button(action, classes="menu-button")
+            yield DataTable()
+
+        
+        yield Footer()
+
+    def action_toggle_dark(self) -> None:
+        self.dark = not self.dark
+
+    def on_mount(self) -> None:
+        table = self.query_one(DataTable)
+        table.add_columns("Profile", "Category", "Website")
+        table.add_rows([
+            ["school", "", "office.com"],
+            ["learning", "typing", "keybr.com"],
+            ["learing", "", "khanacademy.org"]
+            ]
+        )
+
+
+
 def passstore_exists():
     return True
 
@@ -16,7 +58,8 @@ def load_theme():
 
 def start_ui():
     load_theme()
-    print("Opening Notcurses.")
+    app = Pass()
+    app.run()
 
 def read_config():
     # finds pass store if it exists
