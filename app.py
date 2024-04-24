@@ -1,9 +1,9 @@
 from rich.text import Text
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical
-from textual.screen import Screen
-from textual.widgets import Placeholder, Footer, Button, DataTable
+from textual.containers import Horizontal, Vertical, Grid
+from textual.screen import Screen, ModalScreen
+from textual.widgets import Placeholder, Footer, Button, DataTable, Static, Label
 
 class Header(Placeholder):
     DEFAULT_CSS= """
@@ -13,17 +13,78 @@ class Header(Placeholder):
     }
     """
 
+
+class DeleteDialog(ModalScreen):
+    DEFAULT_CSS="""
+    DeleteDialog {
+        align: center middle;
+    }
+    #question {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #confirm {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #warning {
+        color: red;
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+
+    }
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 11;
+        border: thick $background 80%;
+        background: $surface;
+    }
+    """
+
+    BINDINGS = [("escape", "leave", "Leave and don't delete"),
+                ("enter", "delete", "Delete selected entries")]
+
+    def compose(self):
+        yield Vertical(
+            Label("Are you sure you want to delete the following?", id="question"),
+            # TODO: add seleteced items list
+            # Placeholder(),
+            Static("THIS ACTION IS IRREVERSIBLE!", id="warning"),
+            Static("<enter> to confirm, <esc> to exit", id="confirm"),
+            id="dialog",
+        )
+
+    def action_leave(self):
+        self.app.pop_screen()
+
+    def action_delete(self):
+        self.app.pop_screen()
+        # TODO: self.app.delete()
+
+
+
 class Sidebar(Vertical):
     DEFAULT_CSS= """
     Sidebar {
-        dock: left;
-        width: 15; 
+        border-left: solid white;
+        dock: right;
+        width: 30; 
     }
     """
 
     def compose(self) -> ComposeResult:
-        for action in ("New", "Edit", "Move"):
-            yield Button(action, classes="menu-button")
+        for binding in self.app.BINDINGS: 
+            yield Static(f"{binding[0]} - {binding[2]}")
 
 passwords = [
     ["Profile", "Category", "Website"],
@@ -32,7 +93,6 @@ passwords = [
     ["learing", "", "khanacademy.org"]
 ]
 class PassTable(DataTable):
-
     def on_mount(table) -> None:
         table.add_columns(*passwords[0][:-1])
 
@@ -48,20 +108,44 @@ class PassTable(DataTable):
             label = Text(str(number), style="#bold")
             table.add_row(*row, label=label)
 
-class MainScreen(Screen):
+class Pass(App):
+    BINDINGS = [
+        ("n", "new_entry", "New"),
+        ("e", "edit_entry", "Edit"),
+        ("m", "move_entry", "Move"),
+        ("f", "find_entry", "Find"),
+        ("F", "find_entry", "Filter"),
+        ("<space>", "select_entry", "Select/unselect"),
+        ("d", "delete_entry",  "Delete"),
+        ("p", "copy_password", "Copy password"),
+        ("u", "copy_username", "Copy username"),
+        ("q", "quit", "Quit")
+    ]
+
+    def action_quit(self):
+        self.app.exit()
+
+    def action_delete_entry(self):
+        self.push_screen(DeleteDialog())
+
+    def action_toggle_dark(self) -> None:
+        self.dark = not self.dark
+
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Footer()
         with Horizontal():
             yield PassTable(id="passtable")
             yield Sidebar()
 
-    def resize_pass_table(self) -> None:
+    def __resize_pass_table(self) -> None:
         """
         Expands the last column in the password table to fill the whole
         remaining table space
         """
-        table = self.query_one(PassTable)
+        try:
+            table = self.query_one(PassTable)
+        except:
+            return
         size = table.size
 
         # calculate width of all columns except the last
@@ -74,32 +158,5 @@ class MainScreen(Screen):
         table.columns[table.last_column].width = self.size.width - total_column_width
         table.refresh()
 
-
-
-
-class Pass(App):
-    BINDINGS = [
-        ("d","toggle_dark",  "Toggle dark mode"),
-        ("m", "move_entry", "Move entry"),
-        ("e", "edit_entry", "Edit entry"),
-        ("n", "new_entry", "New entry"),
-        ("f", "find_entry", "Find"),
-        ("p", "copy_password", "Copy password"),
-        ("u", "copy_username", "Copy username"),
-    ]
-
-    SCREENS = { "Main": MainScreen(id="main-screen") }
-
-
-    def on_mount(self) -> None:
-         self.push_screen("Main")
-
-
-    def action_toggle_dark(self) -> None:
-        self.dark = not self.dark
-
     def post_display_hook(self):
-        screen = self.children[0]
-        if screen.id == "main-screen":
-            screen.resize_pass_table()
-
+        self.__resize_pass_table()
