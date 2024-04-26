@@ -29,11 +29,5 @@ if __name__ == "__main__":
     else:
         create_pass_store()
 
-    app = app.Pass()
-    app.run()
-
-    
-
-
-
-
+    pass_app = app.Pass()
+    pass_app.run()

@@ -4,6 +4,9 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, Grid
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Placeholder, Footer, Button, DataTable, Static, Label
+from textual.widgets.data_table import Row
+
+from dataclasses import dataclass
 
 class Header(Placeholder):
     DEFAULT_CSS= """
@@ -92,21 +95,23 @@ passwords = [
     ["learning", "typing", "keybr.com"],
     ["learing", "", "khanacademy.org"]
 ]
+
 class PassTable(DataTable):
-    def on_mount(table) -> None:
-        table.add_columns(*passwords[0][:-1])
+    def on_mount(self) -> None:
+        self.add_columns(*passwords[0][:-1])
 
         # add the last column separately to be able to set its key and use it later
         # set width to zero so that auto_width is set to false
-        table.last_column = table.add_column(passwords[0][-1], width=0, key=passwords[0][-1])
+        self.last_column = self.add_column(passwords[0][-1], width=0, key=passwords[0][-1])
 
-        table.cursor_type = "row"
-        table.zebra_stripes = True
+        self.cursor_type = "row"
+        self.zebra_stripes = True
 
 
         for number, row in enumerate(passwords[1:], start=1):
             label = Text(str(number), style="#bold")
-            table.add_row(*row, label=label)
+            self.add_row(*row, label=label)
+
 
 class Pass(App):
     BINDINGS = [
@@ -119,11 +124,9 @@ class Pass(App):
         ("d", "delete_entry",  "Delete"),
         ("p", "copy_password", "Copy password"),
         ("u", "copy_username", "Copy username"),
+        ("t", "toggle_dark", "Dark/light mode"),
         ("q", "quit", "Quit")
     ]
-
-    def action_quit(self):
-        self.app.exit()
 
     def action_delete_entry(self):
         self.push_screen(DeleteDialog())
@@ -146,8 +149,8 @@ class Pass(App):
             table = self.query_one(PassTable)
         except:
             return
-        size = table.size
 
+        size = table.size
         # calculate width of all columns except the last
         total_column_width = 0
         for column in table.columns.values():
@@ -155,7 +158,7 @@ class Pass(App):
                 total_column_width += column.width
 
         # expand the last column to fit the whole table
-        table.columns[table.last_column].width = self.size.width - total_column_width
+        table.columns[table.last_column].width = size.width - total_column_width
         table.refresh()
 
     def post_display_hook(self):
