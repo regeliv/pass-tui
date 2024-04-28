@@ -1,3 +1,4 @@
+from __future__ import annotations
 from rich.text import Text
 
 from textual.app import App, ComposeResult
@@ -6,7 +7,11 @@ from textual.screen import Screen, ModalScreen
 from textual.widgets import Placeholder, Footer, Button, DataTable, Static, Label
 from textual.widgets.data_table import CellType, Row, RowKey
 
+from textual.css.query import NoMatches
+
+
 from dataclasses import dataclass
+from typing import Iterator
 
 class Header(Placeholder):
     DEFAULT_CSS= """
@@ -55,12 +60,18 @@ class DeleteDialog(ModalScreen):
 
     BINDINGS = [("escape", "leave", "Leave and don't delete"),
                 ("enter", "delete", "Delete selected entries")]
+    
+    table: PassTable
+
+    def __init__(self, table: PassTable , name: str | None = None, id: str | None = None, classes: str | None = None) -> None:
+        self.table = table
+        super().__init__(name, id, classes)
 
     def compose(self):
         yield Vertical(
             Label("Are you sure you want to delete the following?", id="question"),
-            # TODO: add seleteced items list
-            # Placeholder(),
+            # TODO: add scrolling and centering
+            *[Static(str(row)) for row in self.table.selected_rows],
             Static("THIS ACTION IS IRREVERSIBLE!", id="warning"),
             Static("<enter> to confirm, <esc> to exit", id="confirm"),
             id="dialog",
@@ -108,10 +119,37 @@ class Checkbox:
     def toggle(self) -> None:
         self.checked = not self.checked
 
+@dataclass
+class PassRow:
+    table: PassTable
+    key: RowKey
+
+    @property
+    def _data(self) -> list:
+        return self.table.get_row(self.key)
+
+    @property
+    def checkbox(self) -> Checkbox:
+        return self._data[0]
+    
+    @property
+    def is_selected(self) -> bool:
+        return self.checkbox.checked
+
+    @property
+    def pass_data(self) -> list:
+        """Returns the list containing password metadata"""
+        return self._data[1:]
+
+    def toggle(self) -> None:
+        self.checkbox.toggle()
+
+    def __str__(self) -> str:
+        """Returns the path representation of a password entry"""
+        # FIXME: spurious slash if category is empty
+        return "/".join([path_fragment for path_fragment in self.pass_data])
+
 class PassTable(DataTable):
-    # BINDINGS = [
-    #      ("space", "toggle_select", "Select/deselect row")
-    # ]
     def on_mount(self) -> None:
         self.add_column("", key="checkbox")
         self.add_columns(*passwords[0][:-1])
@@ -135,39 +173,26 @@ class PassTable(DataTable):
         self._update_count += 1
         self.refresh()
 
-    @property
-    def current_row(self):
+    def get_cursor_row(self):
         key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
         return PassRow(key=key, table=self)
 
     def toggle_select(self) -> None:
-        self.current_row.toggle()
+        self.get_cursor_row().toggle()
         self.force_refresh()
 
-@dataclass
-class PassRow:
-    table: PassTable
-    key: RowKey
+    @property
+    def all_rows(self) -> Iterator[PassRow]:
+        for key in self.rows:
+            yield PassRow(table=self, key=key)
 
     @property
-    def _data(self) -> list:
-        return self.table.get_row(self.key)
+    def selected_rows(self) -> Iterator[PassRow]:
+        for row in self.all_rows:
+            if row.is_selected:
+                yield row
 
-    @property
-    def checkbox(self) -> Checkbox:
-        return self._data[0]
 
-    @property
-    def pass_data(self) -> list:
-        """Returns the list containing password metadata"""
-        return self._data[1:]
-
-    def toggle(self) -> None:
-        self.checkbox.toggle()
-
-    def __str__(self) -> str:
-        """Returns the path representation of a password entry"""
-        return "/".join([path_fragment for path_fragment in self.pass_data])
 
 class Pass(App):
     BINDINGS = [
@@ -184,10 +209,21 @@ class Pass(App):
         ("q", "quit", "Quit")
     ]
 
-    def action_delete_entry(self):
-        self.push_screen(DeleteDialog())
+    def action_delete_entry(self) -> None:
+        try:
+            self.push_screen(DeleteDialog(self.table))
+        except NoMatches:
+            return
 
-    def action_select_entry(self):
+
+    @property
+    def table(self) -> PassTable:
+        """Get PassTable, throws NoMatches exception if it's not in the current
+           screen
+        """
+        return self.query_one("#passtable", PassTable)
+
+    def action_select_entry(self) -> None:
         try:
             table = self.query_one(PassTable)
             table.toggle_select()
@@ -209,9 +245,9 @@ class Pass(App):
         remaining table space
         """
         try:
-            # TODO: use id?
-            table = self.query_one(PassTable)
-        except:
+            # TODO: change to method access
+            table = self.query_one("#passtable", PassTable)
+        except NoMatches:
             return
 
         # TODO: Move this to pass table
