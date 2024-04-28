@@ -153,6 +153,12 @@ class Checkbox:
     def toggle(self) -> None:
         self.checked = not self.checked
 
+    def select(self) -> None:
+        self.checked = True
+
+    def deselect(self) -> None:
+        self.checked = False
+
 
 @dataclass
 class PassRow:
@@ -179,6 +185,12 @@ class PassRow:
     def toggle(self) -> None:
         self.checkbox.toggle()
 
+    def select(self) -> None:
+        self.checkbox.select()
+
+    def deselect(self) -> None:
+        self.checkbox.deselect()
+
     def __str__(self) -> str:
         """Returns the path representation of a password entry"""
         return "/".join(
@@ -187,6 +199,17 @@ class PassRow:
 
 
 class PassTable(DataTable):
+    BINDINGS = [
+        ("shift+up", "select_up", "Select many entries"),
+        ("shift+down", "select_down", "Select many entries"),
+        ("ctrl+shift+up", "deselect_up", "Select many entries"),
+        ("ctrl+shift+down", "deselect_down", "Select many entries"),
+        ("escape", "deselect_all", "Remove selection"),
+        ("space", "select_entry", "Select/deselect"),
+        ("a", "select_all", "Select all entries"),
+        ("r", "reverse_selection", "Reverse selection"),
+    ]
+
     def on_mount(self) -> None:
         self.add_column("", key="checkbox")
         self.add_columns(*passwords[0][:-1])
@@ -203,6 +226,56 @@ class PassTable(DataTable):
         for number, row in enumerate(passwords[1:], start=1):
             label = Text(str(number), style="#bold")
             self.add_row(*row, label=label)
+
+    def action_deselect_all(self) -> None:
+        for row in self.all_rows:
+            row.deselect()
+
+        self.force_refresh()
+
+    def action_select_all(self) -> None:
+        for row in self.all_rows:
+            row.select()
+
+        self.force_refresh()
+
+    def action_reverse_selection(self) -> None:
+        for row in self.all_rows:
+            row.toggle()
+
+        self.force_refresh()
+
+    def action_select_up(self) -> None:
+        self.current_row.select()
+        super().action_cursor_up()
+        self.current_row.select()
+
+        self.force_refresh()
+
+    def action_select_down(self) -> None:
+        self.current_row.select()
+        super().action_cursor_down()
+        self.current_row.select()
+
+        self.force_refresh()
+
+    def action_deselect_up(self) -> None:
+        self.current_row.deselect()
+        super().action_cursor_up()
+        self.current_row.deselect()
+
+        self.force_refresh()
+
+    def action_deselect_down(self) -> None:
+        self.current_row.deselect()
+        super().action_cursor_down()
+        self.current_row.deselect()
+
+        self.force_refresh()
+
+    def action_select_entry(self) -> None:
+        self.current_row.toggle()
+        self.force_refresh()
 
     def add_row(
         self,
@@ -224,10 +297,6 @@ class PassTable(DataTable):
     def current_row(self):
         key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
         return PassRow(key=key, table=self)
-
-    def toggle_select(self) -> None:
-        self.current_row.toggle()
-        self.force_refresh()
 
     @property
     def all_rows(self) -> Iterator[PassRow]:
@@ -253,7 +322,6 @@ class Pass(App):
         ("m", "move_entry", "Move"),
         ("f", "find_entry", "Find"),
         ("F", "find_entry", "Filter"),
-        ("space", "select_entry", "Select/deselect"),
         ("d", "delete_entry", "Delete"),
         ("p", "copy_password", "Copy password"),
         ("u", "copy_username", "Copy username"),
@@ -273,13 +341,6 @@ class Pass(App):
         screen
         """
         return self.query_one("#passtable", PassTable)
-
-    def action_select_entry(self) -> None:
-        try:
-            table = self.query_one(PassTable)
-            table.toggle_select()
-        except:
-            return
 
     def action_toggle_dark(self) -> None:
         self.dark = not self.dark
