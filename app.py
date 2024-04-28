@@ -4,7 +4,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, Grid
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Placeholder, Footer, Button, DataTable, Static, Label
-from textual.widgets.data_table import Row
+from textual.widgets.data_table import CellType, Row, RowKey
 
 from dataclasses import dataclass
 
@@ -15,7 +15,6 @@ class Header(Placeholder):
         dock: top;
     }
     """
-
 
 class DeleteDialog(ModalScreen):
     DEFAULT_CSS="""
@@ -90,14 +89,31 @@ class Sidebar(Vertical):
             yield Static(f"{binding[0]} - {binding[2]}")
 
 passwords = [
-    ["Profile", "Category", "Website"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learing", "", "khanacademy.org"]
+    ["Profile",     "Category",     "URL"],
+    ["school",      "",             "office.com"],
+    ["learning",    "typing",       "keybr.com"],
+    ["learing",     "",             "khanacademy.org"]
 ]
 
+@dataclass
+class Checkbox:
+    checked: bool = False
+
+    def __str__(self) -> str:
+        return "■" if self.checked else ""
+
+    def __rich__(self) -> str:
+        return "[b]■[/]" if self.checked else ""
+
+    def toggle(self) -> None:
+        self.checked = not self.checked
+
 class PassTable(DataTable):
+    # BINDINGS = [
+    #      ("space", "toggle_select", "Select/deselect row")
+    # ]
     def on_mount(self) -> None:
+        self.add_column("", key="checkbox")
         self.add_columns(*passwords[0][:-1])
 
         # add the last column separately to be able to set its key and use it later
@@ -107,11 +123,51 @@ class PassTable(DataTable):
         self.cursor_type = "row"
         self.zebra_stripes = True
 
-
         for number, row in enumerate(passwords[1:], start=1):
             label = Text(str(number), style="#bold")
-            self.add_row(*row, label=label)
+            # TODO: Extract it into a method
+            row_key = self.add_row(Checkbox(), *row, label=label)
+    
+    def force_refresh(self) -> None:
+        """Force refresh table."""
+        # HACK: Without such increment, the table is refreshed
+        # only when focus changes to another column.
+        self._update_count += 1
+        self.refresh()
 
+    @property
+    def current_row(self):
+        key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
+        return PassRow(key=key, table=self)
+
+    def toggle_select(self) -> None:
+        self.current_row.toggle()
+        self.force_refresh()
+
+@dataclass
+class PassRow:
+    table: PassTable
+    key: RowKey
+
+    @property
+    def _data(self) -> list:
+        return self.table.get_row(self.key)
+
+    @property
+    def checkbox(self) -> Checkbox:
+        return self._data[0]
+
+    @property
+    def pass_data(self) -> list:
+        """Returns the list containing password metadata"""
+        return self._data[1:]
+
+    def toggle(self) -> None:
+        self.checkbox.toggle()
+
+    def __str__(self) -> str:
+        """Returns the path representation of a password entry"""
+        return "/".join([path_fragment for path_fragment in self.pass_data])
 
 class Pass(App):
     BINDINGS = [
@@ -120,7 +176,7 @@ class Pass(App):
         ("m", "move_entry", "Move"),
         ("f", "find_entry", "Find"),
         ("F", "find_entry", "Filter"),
-        ("<space>", "select_entry", "Select/unselect"),
+        ("space", "select_entry", "Select/deselect"),
         ("d", "delete_entry",  "Delete"),
         ("p", "copy_password", "Copy password"),
         ("u", "copy_username", "Copy username"),
@@ -130,6 +186,13 @@ class Pass(App):
 
     def action_delete_entry(self):
         self.push_screen(DeleteDialog())
+
+    def action_select_entry(self):
+        try:
+            table = self.query_one(PassTable)
+            table.toggle_select()
+        except:
+            return
 
     def action_toggle_dark(self) -> None:
         self.dark = not self.dark
@@ -146,10 +209,12 @@ class Pass(App):
         remaining table space
         """
         try:
+            # TODO: use id?
             table = self.query_one(PassTable)
         except:
             return
 
+        # TODO: Move this to pass table
         size = table.size
         # calculate width of all columns except the last
         total_column_width = 0
