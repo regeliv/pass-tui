@@ -1,11 +1,11 @@
 from __future__ import annotations
-from rich.text import Text
+from rich.text import Text, TextType
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical, Grid
-from textual.screen import Screen, ModalScreen
-from textual.widgets import Placeholder, Footer, Button, DataTable, Static, Label
-from textual.widgets.data_table import CellType, Row, RowKey
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.screen import ModalScreen
+from textual.widgets import Placeholder, DataTable, Static, Label
+from textual.widgets.data_table import CellType, RowKey
 
 from textual.css.query import NoMatches
 
@@ -13,16 +13,18 @@ from textual.css.query import NoMatches
 from dataclasses import dataclass
 from typing import Iterator
 
+
 class Header(Placeholder):
-    DEFAULT_CSS= """
+    DEFAULT_CSS = """
     Header {
         height: 1;
         dock: top;
     }
     """
 
+
 class DeleteDialog(ModalScreen):
-    DEFAULT_CSS="""
+    DEFAULT_CSS = """
     DeleteDialog {
         align: center middle;
     }
@@ -39,12 +41,11 @@ class DeleteDialog(ModalScreen):
         content-align: center middle;
     }
     #warning {
-        color: red;
+        color: $error;
         column-span: 2;
         height: 1fr;
         width: 1fr;
         content-align: center middle;
-
     }
     #dialog {
         grid-size: 2;
@@ -52,26 +53,43 @@ class DeleteDialog(ModalScreen):
         grid-rows: 1fr 3;
         padding: 0 1;
         width: 60;
-        height: 11;
+        height: 20; 
         border: thick $background 80%;
         background: $surface;
     }
+    #entry-list {
+        column-span: 2;
+        height: 5fr;
+        width: 1fr;
+        background: $panel
+    }
     """
 
-    BINDINGS = [("escape", "leave", "Leave and don't delete"),
-                ("enter", "delete", "Delete selected entries")]
-    
+    BINDINGS = [
+        ("escape", "leave", "Leave and don't delete"),
+        ("q", "leave", "Leave and don't delete"),
+        ("enter", "delete", "Delete selected entries"),
+    ]
+
     table: PassTable
 
-    def __init__(self, table: PassTable , name: str | None = None, id: str | None = None, classes: str | None = None) -> None:
+    def __init__(
+        self,
+        table: PassTable,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+    ) -> None:
         self.table = table
         super().__init__(name, id, classes)
 
-    def compose(self):
+    def compose(self) -> ComposeResult:
         yield Vertical(
             Label("Are you sure you want to delete the following?", id="question"),
-            # TODO: add scrolling and centering
-            *[Static(str(row)) for row in self.table.selected_rows],
+            VerticalScroll(
+                *[Static(str(row)) for row in self.table.selected_rows],
+                id="entry-list",
+            ),
             Static("THIS ACTION IS IRREVERSIBLE!", id="warning"),
             Static("<enter> to confirm, <esc> to exit", id="confirm"),
             id="dialog",
@@ -85,9 +103,8 @@ class DeleteDialog(ModalScreen):
         # TODO: self.app.delete()
 
 
-
 class Sidebar(Vertical):
-    DEFAULT_CSS= """
+    DEFAULT_CSS = """
     Sidebar {
         border-left: solid white;
         dock: right;
@@ -96,15 +113,32 @@ class Sidebar(Vertical):
     """
 
     def compose(self) -> ComposeResult:
-        for binding in self.app.BINDINGS: 
+        for binding in self.app.BINDINGS:
             yield Static(f"{binding[0]} - {binding[2]}")
 
+
 passwords = [
-    ["Profile",     "Category",     "URL"],
-    ["school",      "",             "office.com"],
-    ["learning",    "typing",       "keybr.com"],
-    ["learing",     "",             "khanacademy.org"]
+    ["Profile", "Category", "URL"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
 ]
+
 
 @dataclass
 class Checkbox:
@@ -119,6 +153,7 @@ class Checkbox:
     def toggle(self) -> None:
         self.checked = not self.checked
 
+
 @dataclass
 class PassRow:
     table: PassTable
@@ -131,7 +166,7 @@ class PassRow:
     @property
     def checkbox(self) -> Checkbox:
         return self._data[0]
-    
+
     @property
     def is_selected(self) -> bool:
         return self.checkbox.checked
@@ -146,8 +181,10 @@ class PassRow:
 
     def __str__(self) -> str:
         """Returns the path representation of a password entry"""
-        # FIXME: spurious slash if category is empty
-        return "/".join([path_fragment for path_fragment in self.pass_data])
+        return "/".join(
+            [path_fragment for path_fragment in self.pass_data if path_fragment != ""]
+        )
+
 
 class PassTable(DataTable):
     def on_mount(self) -> None:
@@ -156,16 +193,26 @@ class PassTable(DataTable):
 
         # add the last column separately to be able to set its key and use it later
         # set width to zero so that auto_width is set to false
-        self.last_column = self.add_column(passwords[0][-1], width=0, key=passwords[0][-1])
+        self.last_column = self.add_column(
+            passwords[0][-1], width=0, key=passwords[0][-1]
+        )
 
         self.cursor_type = "row"
         self.zebra_stripes = True
 
         for number, row in enumerate(passwords[1:], start=1):
             label = Text(str(number), style="#bold")
-            # TODO: Extract it into a method
-            row_key = self.add_row(Checkbox(), *row, label=label)
-    
+            self.add_row(*row, label=label)
+
+    def add_row(
+        self,
+        *cells: CellType,
+        height: int | None = 1,
+        key: str | None = None,
+        label: TextType | None = None,
+    ) -> RowKey:
+        return super().add_row(Checkbox(), *cells, height=height, key=key, label=label)
+
     def force_refresh(self) -> None:
         """Force refresh table."""
         # HACK: Without such increment, the table is refreshed
@@ -173,12 +220,13 @@ class PassTable(DataTable):
         self._update_count += 1
         self.refresh()
 
-    def get_cursor_row(self):
+    @property
+    def current_row(self):
         key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
         return PassRow(key=key, table=self)
 
     def toggle_select(self) -> None:
-        self.get_cursor_row().toggle()
+        self.current_row.toggle()
         self.force_refresh()
 
     @property
@@ -188,10 +236,14 @@ class PassTable(DataTable):
 
     @property
     def selected_rows(self) -> Iterator[PassRow]:
+        count = 0
         for row in self.all_rows:
             if row.is_selected:
+                count += 1
                 yield row
 
+        if count == 0:
+            yield self.current_row
 
 
 class Pass(App):
@@ -202,11 +254,11 @@ class Pass(App):
         ("f", "find_entry", "Find"),
         ("F", "find_entry", "Filter"),
         ("space", "select_entry", "Select/deselect"),
-        ("d", "delete_entry",  "Delete"),
+        ("d", "delete_entry", "Delete"),
         ("p", "copy_password", "Copy password"),
         ("u", "copy_username", "Copy username"),
         ("t", "toggle_dark", "Dark/light mode"),
-        ("q", "quit", "Quit")
+        ("q", "quit", "Quit"),
     ]
 
     def action_delete_entry(self) -> None:
@@ -215,11 +267,10 @@ class Pass(App):
         except NoMatches:
             return
 
-
     @property
     def table(self) -> PassTable:
         """Get PassTable, throws NoMatches exception if it's not in the current
-           screen
+        screen
         """
         return self.query_one("#passtable", PassTable)
 
@@ -245,8 +296,7 @@ class Pass(App):
         remaining table space
         """
         try:
-            # TODO: change to method access
-            table = self.query_one("#passtable", PassTable)
+            table = self.table
         except NoMatches:
             return
 
