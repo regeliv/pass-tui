@@ -4,11 +4,8 @@ from rich.text import Text, TextType
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Placeholder, DataTable, Static, Label
+from textual.widgets import Input, Placeholder, DataTable, Static, Label, TextArea
 from textual.widgets.data_table import CellType, RowKey
-
-from textual.css.query import NoMatches
-
 
 from dataclasses import dataclass
 from typing import Iterator
@@ -66,8 +63,7 @@ class DeleteDialog(ModalScreen):
     """
 
     BINDINGS = [
-        ("escape", "leave", "Leave and don't delete"),
-        ("q", "leave", "Leave and don't delete"),
+        ("escape,q", "leave", "Leave and don't delete"),
         ("enter", "delete", "Delete selected entries"),
     ]
 
@@ -84,6 +80,7 @@ class DeleteDialog(ModalScreen):
         super().__init__(name, id, classes)
 
     def compose(self) -> ComposeResult:
+
         yield Vertical(
             Label("Are you sure you want to delete the following?", id="question"),
             VerticalScroll(
@@ -100,6 +97,87 @@ class DeleteDialog(ModalScreen):
 
     def action_delete(self):
         self.table.delete_selected()
+        self.app.pop_screen()
+
+
+class EditDialog(ModalScreen):
+    DEFAULT_CSS = """
+    EditDialog {
+        align: center middle;
+    }
+    #question {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #confirm {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #warning {
+        color: $error;
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 20; 
+        border: thick $background 80%;
+        background: $surface;
+    }
+    #text-area {
+        column-span: 2;
+        height: 5fr;
+        width: 1fr;
+        background: $panel
+    }
+    """
+    BINDINGS = [
+        ("escape", "leave", "Leave and don't delete"),
+        ("enter", "leave_and_save", "Delete selected entries"),
+        ("ctrl+down,down", "focus_next", "Focus name"),
+        ("ctrl+up", "focus_previous", "Focus text area"),
+    ]
+
+    table: PassTable
+
+    def __init__(
+        self,
+        table: PassTable,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+    ) -> None:
+        self.table = table
+        super().__init__(name, id, classes)
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Label("Edit", id="question"),
+            Input(value=str(self.table.current_row)),
+            TextArea(
+                text="x8|!1zeELA.\nuser@email.com",
+                id="text-area",
+            ),
+            # Static(str(self.table.current_row)),
+            Static("<enter> to exit and save, <esc> to exit", id="confirm"),
+            id="dialog",
+        )
+
+    def action_leave(self):
+        self.app.pop_screen()
+
+    def action_leave_and_save(self):
+        # self.table.save(new_text)
         self.app.pop_screen()
 
 
@@ -270,6 +348,7 @@ class PassTable(DataTable):
         ("space", "select_entry", "Select/deselect"),
         ("a", "select_all", "Select all entries"),
         ("d", "delete_entry", "Delete"),
+        ("e", "edit_entry", "Delete"),
         ("r", "reverse_selection", "Reverse selection"),
     ]
 
@@ -285,6 +364,10 @@ class PassTable(DataTable):
     def action_delete_entry(self) -> None:
         if self.row_count > 0:
             self.app.push_screen(DeleteDialog(self))
+
+    def action_edit_entry(self) -> None:
+        if self.row_count > 0:
+            self.app.push_screen(EditDialog(self))
 
     def action_deselect_all(self) -> None:
         for row in self.all_rows:
