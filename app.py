@@ -229,6 +229,15 @@ class PassRow:
 
 class PassTable(DataTable):
     DEFAULT_CSS = """
+        PassTable {
+            scrollbar-background: $surface;
+            scrollbar-background-hover: $surface;
+            scrollbar-background-active: $surface;
+            scrollbar-color: $surface;
+            scrollbar-color-active: $surface;
+            scrollbar-color-hover: $surface;
+            scrollbar-corner-color: $surface;
+        }
         PassTable > .datatable--cursor {
             background: $surface;
             color: #d75fd7; /* ansi 256-bit orchid */
