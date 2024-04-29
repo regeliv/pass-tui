@@ -1,10 +1,23 @@
 from __future__ import annotations
 from rich.text import Text, TextType
 
+from textual import widgets
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
-from textual.containers import Vertical, VerticalScroll
-from textual.widgets import Input, DataTable, Static, Label, TextArea
+from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widgets import (
+    Button,
+    ContentSwitcher,
+    Input,
+    DataTable,
+    RadioButton,
+    RadioSet,
+    Static,
+    Label,
+    TextArea,
+)
+import textual.widgets
+
 from textual.widgets.data_table import CellType, RowKey
 
 from typing import Iterator
@@ -102,7 +115,7 @@ class EditDialog(ModalScreen):
         width: 1fr;
         content-align: center middle;
     }
-    #confirm {
+    .confirm {
         column-span: 2;
         height: 1fr;
         width: 1fr;
@@ -157,10 +170,15 @@ class EditDialog(ModalScreen):
             Input(value=str(self.table.current_row)),
             TextArea(
                 text="x8|!1zeELA.\nuser@email.com",
+                show_line_numbers=True,
                 id="text-area",
             ),
             # Static(str(self.table.current_row)),
-            Static("<enter> to exit and save, <esc> to exit", id="confirm"),
+            Static(
+                "Ctrl-p to generate new password Ctrl-h to show reveal password",
+                classes="confirm",
+            ),
+            Static("<enter> to exit and save, <esc> to exit", classes="confirm"),
             id="dialog",
         )
 
@@ -169,6 +187,104 @@ class EditDialog(ModalScreen):
 
     def action_leave_and_save(self):
         # self.table.save(new_text)
+        self.app.pop_screen()
+
+
+class NewEntryDialog(ModalScreen):
+    DEFAULT_CSS = """
+    NewEntryDialog {
+        align: center middle;
+    }
+    #question {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #confirm {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #warning {
+        color: $error;
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 30; 
+        border: thick $background 80%;
+        background: $surface;
+    }
+    #password-input {
+        column-span: 2;
+        height: 5fr;
+        width: 1fr;
+    }
+    #radio-choice {
+        width: 1fr;
+    }
+    #options {
+        width: 1fr;
+    }
+    
+    """
+    BINDINGS = [
+        ("escape", "leave", "Leave and don't delete"),
+        ("enter", "leave_and_save", "Delete selected entries"),
+        ("down,ctrl+down", "focus_next", "Focus name"),
+        ("up,ctrl+up", "focus_previous", "Focus text area"),
+    ]
+
+    table: PassTable
+
+    def __init__(
+        self,
+        table: PassTable,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+    ) -> None:
+        self.table = table
+        super().__init__(name, id, classes)
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dialog"):
+            yield Label("New", id="question")
+
+            yield Input(placeholder="profile/category")
+            yield Input(placeholder="URL")
+            yield Input(placeholder="username")
+
+            with Vertical(id="password-input"):
+                yield Input(value="x98lhdeag/?", id="random-input", password=True)
+                with Horizontal():
+                    # TODO: content switcher
+                    with RadioSet(id="radio-choice"):
+                        yield RadioButton("Symbols")
+                        yield RadioButton("Words")
+                    with Vertical(id="options"):
+                        # TODO: Rename local checkbox
+                        yield widgets.Checkbox("A-Z")
+                        yield widgets.Checkbox("a-z")
+                        yield widgets.Checkbox("0-9")
+                        yield widgets.Checkbox("/*+&...")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.query_one(ContentSwitcher).current = event.button.id
+
+    def action_leave(self):
+        self.app.pop_screen()
+
+    def action_leave_and_save(self):
         self.app.pop_screen()
 
 
@@ -326,6 +442,7 @@ class PassTable(DataTable):
         ("a", "select_all", "Select all entries"),
         ("d", "delete_entry", "Delete"),
         ("e", "edit_entry", "Delete"),
+        ("n", "new_entry", "Add new entry"),
         ("r", "reverse_selection", "Reverse selection"),
     ]
 
@@ -337,6 +454,9 @@ class PassTable(DataTable):
         for number, row in enumerate(passwords[1:], start=1):
             label = Text(str(number), justify="right")
             self.add_row(*row, label=label)
+
+    def action_new_entry(self) -> None:
+        self.app.push_screen(NewEntryDialog(self))
 
     def action_delete_entry(self) -> None:
         if self.row_count > 0:
