@@ -16,7 +16,6 @@ from textual.widgets import (
     Label,
     TextArea,
 )
-import textual.widgets
 
 from textual.widgets.data_table import CellType, RowKey
 
@@ -285,6 +284,89 @@ class NewEntryDialog(ModalScreen):
         self.app.pop_screen()
 
     def action_leave_and_save(self):
+        # self.table.new_entry(self.entry)
+        self.app.pop_screen()
+
+
+class MoveDialog(ModalScreen):
+    DEFAULT_CSS = """
+        MoveDialog {
+            align: center middle;
+        }
+        #question {
+            column-span: 2;
+            height: 1fr;
+            width: 1fr;
+            content-align: center middle;
+        }
+        #confirm {
+            column-span: 2;
+            height: 1fr;
+            width: 1fr;
+            content-align: center middle;
+        }
+        #warning {
+            color: $error;
+            column-span: 2;
+            height: 1fr;
+            width: 1fr;
+            content-align: center middle;
+        }
+        #dialog {
+            grid-size: 2;
+            grid-gutter: 1 2;
+            grid-rows: 1fr 3;
+            padding: 0 1;
+            width: 60;
+            height: 20; 
+            border: thick $background 80%;
+            background: $surface;
+        }
+        #entry-list {
+            column-span: 2;
+            height: 5fr;
+            width: 1fr;
+            background: $panel
+        }
+        """
+
+    BINDINGS = [
+        ("escape", "leave", "Leave and don't delete"),
+        ("enter", "leave_and_save", "Delete selected entries"),
+        ("ctrl+down,down", "focus_next", "Focus name"),
+        ("ctrl+up", "focus_previous", "Focus text area"),
+    ]
+
+    table: PassTable
+
+    def __init__(
+        self,
+        table: PassTable,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+    ) -> None:
+        self.table = table
+        super().__init__(name, id, classes)
+
+    def compose(self) -> ComposeResult:
+        yield Vertical(
+            Label("Move", id="question"),
+            VerticalScroll(
+                *[Static(str(row)) for row in self.table.selected_rows],
+                id="entry-list",
+            ),
+            Input(placeholder="destination"),
+            widgets.Checkbox("Flatten hierarchy?"),
+            Static("<enter> to confirm, <esc> to exit", id="confirm"),
+            id="dialog",
+        )
+
+    def action_leave(self):
+        self.app.pop_screen()
+
+    def action_leave_and_save(self):
+        # self.table.move(self.dst, self.flatten_hierarchy)
         self.app.pop_screen()
 
 
@@ -443,6 +525,7 @@ class PassTable(DataTable):
         ("d", "delete_entry", "Delete"),
         ("e", "edit_entry", "Delete"),
         ("n", "new_entry", "Add new entry"),
+        ("m", "move_entry", "Move entry"),
         ("r", "reverse_selection", "Reverse selection"),
     ]
 
@@ -454,6 +537,9 @@ class PassTable(DataTable):
         for number, row in enumerate(passwords[1:], start=1):
             label = Text(str(number), justify="right")
             self.add_row(*row, label=label)
+
+    def action_move_entry(self) -> None:
+        self.app.push_screen(MoveDialog(self))
 
     def action_new_entry(self) -> None:
         self.app.push_screen(NewEntryDialog(self))
