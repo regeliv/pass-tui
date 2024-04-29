@@ -1,8 +1,13 @@
 import app
+import os
+from rich import print
 
 
 def passstore_exists():
-    return True
+    pass_dir = os.getenv("PASSWORD_STORE_DIR")
+    if pass_dir is None:
+        pass_dir = os.path.expanduser("~/.password-store")
+    return os.path.isdir(pass_dir)
 
 
 def decrypt():
@@ -14,10 +19,6 @@ def open_pass_store():
     pass
 
 
-def create_pass_store():
-    pass
-
-
 def load_theme():
     print("Loading autumn theme")
 
@@ -25,16 +26,17 @@ def load_theme():
 def read_config():
     # finds pass store if it exists
     # reads config file if it exists
-    print("Finding passstore")
     print("Reading user config")
 
 
 if __name__ == "__main__":
-    read_config()
     if passstore_exists():
+        read_config()
         open_pass_store()
+        pass_app = app.Pass()
+        pass_app.run()
     else:
-        create_pass_store()
-
-    pass_app = app.Pass()
-    pass_app.run()
+        print(
+            "[bold red]Error: Failed to find the password store.[/bold red]\n"
+            "Try running '[bold]pass init[/bold]' or ensure the [bold]PASSWORD_STORE_DIR[/bold] is set."
+        )
