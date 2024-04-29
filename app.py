@@ -99,8 +99,8 @@ class DeleteDialog(ModalScreen):
         self.app.pop_screen()
 
     def action_delete(self):
+        self.table.delete_selected()
         self.app.pop_screen()
-        # TODO: self.app.delete()
 
 
 class Sidebar(Vertical):
@@ -119,6 +119,35 @@ class Sidebar(Vertical):
 
 passwords = [
     ["Profile", "Category", "URL"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
+    ["school", "", "office.com"],
+    ["learning", "typing", "keybr.com"],
+    ["learning", "", "khanacademy.org"],
     ["school", "", "office.com"],
     ["learning", "typing", "keybr.com"],
     ["learning", "", "khanacademy.org"],
@@ -199,6 +228,20 @@ class PassRow:
 
 
 class PassTable(DataTable):
+    DEFAULT_CSS = """
+        PassTable > .datatable--cursor {
+            background: $surface;
+            color: #d75fd7; /* ansi 256-bit orchid */
+        }
+        PassTable > .datatable--header {
+            background: $surface;
+        }
+        PassTable > .datatable--header-cursor {
+            background: $surface;
+            color: #d75fd7; /* ansi 256-bit orchid */
+        }
+    """
+
     BINDINGS = [
         ("shift+up", "select_up", "Select many entries"),
         ("shift+down", "select_down", "Select many entries"),
@@ -207,25 +250,22 @@ class PassTable(DataTable):
         ("escape", "deselect_all", "Remove selection"),
         ("space", "select_entry", "Select/deselect"),
         ("a", "select_all", "Select all entries"),
+        ("d", "delete_entry", "Delete"),
         ("r", "reverse_selection", "Reverse selection"),
     ]
 
     def on_mount(self) -> None:
         self.add_column("", key="checkbox")
-        self.add_columns(*passwords[0][:-1])
-
-        # add the last column separately to be able to set its key and use it later
-        # set width to zero so that auto_width is set to false
-        self.last_column = self.add_column(
-            passwords[0][-1], width=0, key=passwords[0][-1]
-        )
-
+        self.add_columns(*passwords[0])
         self.cursor_type = "row"
-        self.zebra_stripes = True
 
         for number, row in enumerate(passwords[1:], start=1):
-            label = Text(str(number), style="#bold")
+            label = Text(str(number), justify="right")
             self.add_row(*row, label=label)
+
+    def action_delete_entry(self) -> None:
+        if self.row_count > 0:
+            self.app.push_screen(DeleteDialog(self))
 
     def action_deselect_all(self) -> None:
         for row in self.all_rows:
@@ -246,36 +286,41 @@ class PassTable(DataTable):
         self.force_refresh()
 
     def action_select_up(self) -> None:
-        self.current_row.select()
-        super().action_cursor_up()
-        self.current_row.select()
+        if self.row_count > 0:
+            self.current_row.select()
+            super().action_cursor_up()
+            self.current_row.select()
 
-        self.force_refresh()
+            self.force_refresh()
 
     def action_select_down(self) -> None:
-        self.current_row.select()
-        super().action_cursor_down()
-        self.current_row.select()
+        if self.row_count > 0:
+            self.current_row.select()
+            super().action_cursor_down()
+            self.current_row.select()
 
-        self.force_refresh()
+            self.force_refresh()
 
     def action_deselect_up(self) -> None:
-        self.current_row.deselect()
-        super().action_cursor_up()
-        self.current_row.deselect()
+        if self.row_count > 0:
+            self.current_row.deselect()
+            super().action_cursor_up()
+            self.current_row.deselect()
 
-        self.force_refresh()
+            self.force_refresh()
 
     def action_deselect_down(self) -> None:
-        self.current_row.deselect()
-        super().action_cursor_down()
-        self.current_row.deselect()
+        if self.row_count > 0:
+            self.current_row.deselect()
+            super().action_cursor_down()
+            self.current_row.deselect()
 
-        self.force_refresh()
+            self.force_refresh()
 
     def action_select_entry(self) -> None:
-        self.current_row.toggle()
-        self.force_refresh()
+        if self.row_count > 0:
+            self.current_row.toggle()
+            self.force_refresh()
 
     def add_row(
         self,
@@ -286,6 +331,18 @@ class PassTable(DataTable):
     ) -> RowKey:
         return super().add_row(Checkbox(), *cells, height=height, key=key, label=label)
 
+    def delete_selected(self) -> None:
+        # we cannot use the iterator in the for loop directly, because the size changes
+        selected_rows = list(self.selected_rows)
+        for row in selected_rows:
+            self.remove_row(row.key)
+
+        self.update_enumeration()
+
+    def update_enumeration(self) -> None:
+        for number, row in enumerate(self.ordered_rows, start=1):
+            row.label = Text(str(number), style="#bold", justify="right")
+
     def force_refresh(self) -> None:
         """Force refresh table."""
         # HACK: Without such increment, the table is refreshed
@@ -294,7 +351,7 @@ class PassTable(DataTable):
         self.refresh()
 
     @property
-    def current_row(self):
+    def current_row(self) -> PassRow:
         key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
         return PassRow(key=key, table=self)
 
@@ -322,18 +379,11 @@ class Pass(App):
         ("m", "move_entry", "Move"),
         ("f", "find_entry", "Find"),
         ("F", "find_entry", "Filter"),
-        ("d", "delete_entry", "Delete"),
         ("p", "copy_password", "Copy password"),
         ("u", "copy_username", "Copy username"),
         ("t", "toggle_dark", "Dark/light mode"),
         ("q", "quit", "Quit"),
     ]
-
-    def action_delete_entry(self) -> None:
-        try:
-            self.push_screen(DeleteDialog(self.table))
-        except NoMatches:
-            return
 
     @property
     def table(self) -> PassTable:
@@ -350,28 +400,3 @@ class Pass(App):
         with Horizontal():
             yield PassTable(id="passtable")
             yield Sidebar()
-
-    def __resize_pass_table(self) -> None:
-        """
-        Expands the last column in the password table to fill the whole
-        remaining table space
-        """
-        try:
-            table = self.table
-        except NoMatches:
-            return
-
-        # TODO: Move this to pass table
-        size = table.size
-        # calculate width of all columns except the last
-        total_column_width = 0
-        for column in table.columns.values():
-            if column.key != table.last_column.value:
-                total_column_width += column.width
-
-        # expand the last column to fit the whole table
-        table.columns[table.last_column].width = size.width - total_column_width
-        table.refresh()
-
-    def post_display_hook(self):
-        self.__resize_pass_table()
