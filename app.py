@@ -242,12 +242,22 @@ class PassTable(DataTable):
             background: $surface;
             color: #d75fd7; /* ansi 256-bit orchid */
         }
+
+        PassTable > .datatable--hover {
+            background: $surface;
+        }
+
         PassTable > .datatable--header {
             background: $surface;
         }
+
         PassTable > .datatable--header-cursor {
             background: $surface;
             color: #d75fd7; /* ansi 256-bit orchid */
+        }
+
+        PassTable > .datatable--header-hover {
+            background: $surface;
         }
     """
 
