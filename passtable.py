@@ -19,8 +19,12 @@ from textual.widgets import (
 
 from textual.widgets.data_table import CellType, RowKey
 
-from typing import Iterator
+from typing import Iterator, Tuple
 from dataclasses import dataclass
+
+
+import subprocess
+import passutils
 
 
 class DeleteDialog(ModalScreen):
@@ -460,9 +464,9 @@ class PassRow:
         return self.checkbox.checked
 
     @property
-    def pass_data(self) -> list:
+    def pass_data(self) -> Tuple[str, str, str]:
         """Returns the list containing password metadata"""
-        return self._data[1:]
+        return tuple(self._data[1:])
 
     def toggle(self) -> None:
         self.checkbox.toggle()
@@ -527,6 +531,7 @@ class PassTable(DataTable):
         ("n", "new_entry", "Add new entry"),
         ("m", "move_entry", "Move entry"),
         ("r", "reverse_selection", "Reverse selection"),
+        ("t", "test_edit", ""),
     ]
 
     def on_mount(self) -> None:
@@ -534,9 +539,14 @@ class PassTable(DataTable):
         self.add_columns(*passwords[0])
         self.cursor_type = "row"
 
-        for number, row in enumerate(passwords[1:], start=1):
+        for number, row in enumerate(passutils.get_categorized_passwords(), start=1):
             label = Text(str(number), justify="right")
             self.add_row(*row, label=label)
+
+    def action_test_edit(self) -> None:
+        if self.row_count > 0:
+            with self.app.suspend():
+                passutils.passcli_edit(self.current_row.pass_data)
 
     def action_move_entry(self) -> None:
         self.app.push_screen(MoveDialog(self))
