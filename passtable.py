@@ -14,16 +14,14 @@ from textual.widgets import (
     RadioSet,
     Static,
     Label,
-    TextArea,
 )
 
 from textual.widgets.data_table import CellType, RowKey
 
 from typing import Iterator, Tuple
 from dataclasses import dataclass
+import os
 
-
-import subprocess
 import passutils
 
 
@@ -275,69 +273,23 @@ class MoveDialog(ModalScreen):
                 id="entry-list",
             ),
             Input(placeholder="destination"),
-            widgets.Checkbox("Flatten hierarchy?"),
+            widgets.Checkbox("Keep categories?", id="checkbox"),
             Static("<enter> to confirm, <esc> to exit", id="confirm"),
             id="dialog",
         )
+
+    def on_mount(self) -> None:
+        input_field = self.query_one(Input)
+        input_field.focus()
 
     def action_leave(self):
         self.app.pop_screen()
 
     def action_leave_and_save(self):
-        # self.table.move(self.dst, self.flatten_hierarchy)
+        keep_categories = self.query_one(widgets.Checkbox).value
+        dst = self.query_one(Input).value
+        self.table.move(dst, keep_categories)
         self.app.pop_screen()
-
-
-passwords = [
-    ["Profile", "Category", "URL"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-    ["school", "", "office.com"],
-    ["learning", "typing", "keybr.com"],
-    ["learning", "", "khanacademy.org"],
-]
 
 
 @dataclass
@@ -378,9 +330,32 @@ class PassRow:
         return self.checkbox.checked
 
     @property
-    def pass_data(self) -> Tuple[str, str, str]:
-        """Returns the list containing password metadata"""
+    def pass_tuple(self) -> Tuple[str, str, str]:
+        """Returns the tuple containing password metadata"""
         return tuple(self._data[1:])
+
+    @property
+    def pass_data(self) -> list[str]:
+        """Returns the list containing password metadata"""
+        return self._data[1:]
+
+    @property
+    def profile(self) -> str:
+        return self.pass_data[0]
+
+    @property
+    def cats(self) -> str:
+        return self.pass_data[1]
+
+    @property
+    def url(self) -> str:
+        return self.pass_data[2]
+
+    def update(self, pass_tuple: Tuple[str, str, str]) -> None:
+        profile, cats, url = pass_tuple
+        self.table.update_cell(self.key, "Profile", profile)
+        self.table.update_cell(self.key, "Category", cats)
+        self.table.update_cell(self.key, "URL", url)
 
     def toggle(self) -> None:
         self.checkbox.toggle()
@@ -394,7 +369,7 @@ class PassRow:
     def __str__(self) -> str:
         """Returns the path representation of a password entry"""
         return "/".join(
-            [path_fragment for path_fragment in self.pass_data if path_fragment != ""]
+            [path_fragment for path_fragment in self.pass_tuple if path_fragment != ""]
         )
 
 
@@ -445,16 +420,30 @@ class PassTable(DataTable):
         ("n", "new_entry", "Add new entry"),
         ("m", "move_entry", "Move entry"),
         ("r", "reverse_selection", "Reverse selection"),
+        ("t", "testing", ""),
     ]
+
+    def sort_enumerate(self) -> None:
+        self.sort(key=lambda row: (row[1], row[2], row[3]))
+        self.update_enumeration()
 
     def on_mount(self) -> None:
         self.add_column("", key="checkbox")
-        self.add_columns(*passwords[0])
+        self.add_column("Profile", key="Profile")
+        self.add_column("Category", key="Category")
+        self.add_column("URL", key="URL")
         self.cursor_type = "row"
 
-        for number, row in enumerate(passutils.get_categorized_passwords(), start=1):
-            label = Text(str(number), justify="right")
-            self.add_row(*row, label=label)
+        # for number, row in enumerate(passutils.get_categorized_passwords(), start=1):
+        #     label = Text(str(number), justify="right")
+        #     self.add_row(*row, label=label)
+        for row in passutils.get_categorized_passwords():
+            self.add_row(*row)
+        self.sort_enumerate()
+
+    def action_testing(self) -> None:
+        rows = list(self.all_rows)
+        rows[0].update(("new_profile", "", "url.com"))
 
     def action_move_entry(self) -> None:
         self.app.push_screen(MoveDialog(self))
@@ -469,7 +458,7 @@ class PassTable(DataTable):
     def action_edit_entry(self) -> None:
         if self.row_count > 0:
             with self.app.suspend():
-                passutils.passcli_edit(self.current_row.pass_data)
+                passutils.passcli_edit(self.current_row.pass_tuple)
 
     def action_deselect_all(self) -> None:
         for row in self.all_rows:
@@ -554,6 +543,35 @@ class PassTable(DataTable):
         self._update_count += 1
         self.refresh()
 
+    def move(self, dst: str, keep_cats: bool) -> None:
+        change_list_rows: list[PassRow] = list(self.selected_rows)
+        if passutils.move_has_conflicts(self.selected_tuples, dst, keep_cats):
+            # TODO: send notification
+            return
+        else:
+            n_fails = 0
+            if keep_cats:
+                for row in change_list_rows:
+                    _, cats, url = row.pass_tuple
+                    ok = passutils.move(
+                        row.pass_tuple,
+                        os.path.join(dst, cats),
+                    )
+                    n_fails += not ok
+                    if ok:
+                        pass
+                        # TODO: update table
+            else:
+                for row in change_list_rows:
+                    _, cats, url = row.pass_tuple
+                    ok = passutils.move(row.pass_tuple, dst)
+                    n_fails += not ok
+                    if ok:
+                        row.update(passutils.path_to_tuple(os.path.join(dst, url)))
+        self.sort_enumerate()
+        # TODO: notify of failures and success
+        # TODO: sync
+
     @property
     def current_row(self) -> PassRow:
         key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
@@ -574,3 +592,14 @@ class PassTable(DataTable):
 
         if count == 0:
             yield self.current_row
+
+    @property
+    def selected_tuples(self) -> Iterator[Tuple[str, str, str]]:
+        count = 0
+        for row in self.all_rows:
+            if row.is_selected:
+                count += 1
+                yield row.pass_tuple
+
+        if count == 0:
+            yield self.current_row.pass_tuple
