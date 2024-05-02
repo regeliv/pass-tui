@@ -107,92 +107,6 @@ class DeleteDialog(ModalScreen):
         self.app.pop_screen()
 
 
-class EditDialog(ModalScreen):
-    DEFAULT_CSS = """
-    EditDialog {
-        align: center middle;
-    }
-    #question {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-    .confirm {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-    #warning {
-        color: $error;
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-    #dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 60;
-        height: 20; 
-        border: thick $background 80%;
-        background: $surface;
-    }
-    #text-area {
-        column-span: 2;
-        height: 5fr;
-        width: 1fr;
-        background: $panel
-    }
-    """
-    BINDINGS = [
-        ("escape", "leave", "Leave and don't delete"),
-        ("enter", "leave_and_save", "Delete selected entries"),
-        ("ctrl+down,down", "focus_next", "Focus name"),
-        ("ctrl+up", "focus_previous", "Focus text area"),
-    ]
-
-    table: PassTable
-
-    def __init__(
-        self,
-        table: PassTable,
-        name: str | None = None,
-        id: str | None = None,
-        classes: str | None = None,
-    ) -> None:
-        self.table = table
-        super().__init__(name, id, classes)
-
-    def compose(self) -> ComposeResult:
-        yield Vertical(
-            Label("Edit", id="question"),
-            Input(value=str(self.table.current_row)),
-            TextArea(
-                text="x8|!1zeELA.\nuser@email.com",
-                show_line_numbers=True,
-                id="text-area",
-            ),
-            # Static(str(self.table.current_row)),
-            Static(
-                "Ctrl-p to generate new password Ctrl-h to show reveal password",
-                classes="confirm",
-            ),
-            Static("<enter> to exit and save, <esc> to exit", classes="confirm"),
-            id="dialog",
-        )
-
-    def action_leave(self):
-        self.app.pop_screen()
-
-    def action_leave_and_save(self):
-        # self.table.save(new_text)
-        self.app.pop_screen()
-
-
 class NewEntryDialog(ModalScreen):
     DEFAULT_CSS = """
     NewEntryDialog {
@@ -531,7 +445,6 @@ class PassTable(DataTable):
         ("n", "new_entry", "Add new entry"),
         ("m", "move_entry", "Move entry"),
         ("r", "reverse_selection", "Reverse selection"),
-        ("t", "test_edit", ""),
     ]
 
     def on_mount(self) -> None:
@@ -542,11 +455,6 @@ class PassTable(DataTable):
         for number, row in enumerate(passutils.get_categorized_passwords(), start=1):
             label = Text(str(number), justify="right")
             self.add_row(*row, label=label)
-
-    def action_test_edit(self) -> None:
-        if self.row_count > 0:
-            with self.app.suspend():
-                passutils.passcli_edit(self.current_row.pass_data)
 
     def action_move_entry(self) -> None:
         self.app.push_screen(MoveDialog(self))
@@ -560,7 +468,8 @@ class PassTable(DataTable):
 
     def action_edit_entry(self) -> None:
         if self.row_count > 0:
-            self.app.push_screen(EditDialog(self))
+            with self.app.suspend():
+                passutils.passcli_edit(self.current_row.pass_data)
 
     def action_deselect_all(self) -> None:
         for row in self.all_rows:
