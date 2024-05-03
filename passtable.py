@@ -5,6 +5,7 @@ from textual import on, widgets
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
 from textual.containers import Horizontal, Vertical, VerticalScroll, Grid
+from textual.validation import Number
 from textual.widgets import (
     Button,
     ContentSwitcher,
@@ -14,6 +15,7 @@ from textual.widgets import (
     RadioSet,
     Static,
     Label,
+    TabbedContent,
 )
 from textual.widgets.data_table import CellType, RowKey
 
@@ -147,7 +149,7 @@ class NewEntryDialog(ModalScreen):
     #radio-choice {
         width: 1fr;
     }
-    #options {
+    #symbols {
         width: 1fr;
         grid-size: 2 3;
     }
@@ -180,17 +182,9 @@ class NewEntryDialog(ModalScreen):
     def passfield(self) -> Input:
         return self.query_one("#random-input", expect_type=Input)
 
-    # TODO: move to property
-    def get_radio_choice(self) -> str:
-        # done only to appease lsp
-        if button := self.query_one(
-            "#radio-choice", expect_type=RadioSet
-        ).pressed_button:
-            if button.name is not None:
-                return button.name
-
-        # unreachable
-        return ""
+    @property
+    def chosen_mode(self) -> str:
+        return self.query_one(TabbedContent).active
 
     @on(widgets.Checkbox.Changed)
     def update_alphabet(self) -> None:
@@ -234,36 +228,61 @@ class NewEntryDialog(ModalScreen):
                     id="random-input",
                     password=True,
                 )
-                with Horizontal():
-                    # TODO: tabbed content switcher
-                    with RadioSet(id="radio-choice"):
-                        yield RadioButton("Symbols", value=True, name="symbols")
-                        yield RadioButton("Words", name="words")
-                    with Grid(id="options"):
+                with TabbedContent("Symbols", "Words"):
+                    with Grid(id="symbols"):
                         # TODO: Rename local checkbox
+                        yield Input(
+                            value="16",
+                            id="symbols-len",
+                            type="number",
+                            validators=[Number(minimum=1)],
+                            restrict="[0-9]*",
+                        )
                         yield widgets.Checkbox("A-Z", id="upper", value=True)
                         yield widgets.Checkbox("a-z", id="lower", value=True)
                         yield widgets.Checkbox("0-9", id="nums", value=True)
                         yield widgets.Checkbox("/*+&...", id="punctuation", value=True)
-                        yield Input(value="16", type="number")
 
-    @on(RadioSet.Changed)
+                    with Grid(id="words"):
+                        yield Input(
+                            placeholder="seperators", id="seps", valid_empty=True
+                        )
+                        yield Input(
+                            value="5",
+                            id="words-len",
+                            type="number",
+                            validators=[Number(minimum=1)],
+                            restrict="[0-9]*",
+                        )
+
+    @on(Input.Changed, "#seps")
+    @on(TabbedContent.TabActivated)
     def action_regenerate_password(self) -> None:
-        choice = self.get_radio_choice()
+        choice = self.chosen_mode
         match choice:
-            case "words":
-                self.passfield.value = passutils.get_rand_passphrase(5, "")[0]
-            case "symbols":
-                self.passfield.value = passutils.get_rand_password(self.alphabet, 16)[0]
+            case "tab-1":
+                len = self.query_one("#symbols-len", expect_type=Input)
+                if not len.is_valid:
+                    return
+                len = int(len.value)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.query_one(ContentSwitcher).current = event.button.id
+                self.passfield.value = passutils.get_rand_password(self.alphabet, len)[
+                    0
+                ]
+            case "tab-2":
+                len = self.query_one("#words-len", expect_type=Input)
+                if not len.is_valid:
+                    return
+
+                len = int(len.value)
+                separators = self.query_one("#seps", expect_type=Input).value
+                self.passfield.value = passutils.get_rand_passphrase(len, separators)[0]
 
     def action_leave(self):
         self.app.pop_screen()
 
     def action_leave_and_save(self):
-        # self.table.new_entry(self.entry)
+        # self.table.new_entry(prof-cat, url, username, password)
         self.app.pop_screen()
 
 
