@@ -43,12 +43,8 @@ class Pass(App):
         ("F", "find_entry", "Filter"),
         ("p", "copy_password", "Copy password"),
         ("u", "copy_username", "Copy username"),
-        ("t", "toggle_dark", "Dark/light mode"),
         ("q", "quit", "Quit"),
     ]
-
-    def action_toggle_dark(self) -> None:
-        self.dark = not self.dark
 
     def compose(self) -> ComposeResult:
         yield Header()

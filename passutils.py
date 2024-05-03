@@ -71,6 +71,23 @@ def get_categorized_passwords() -> list[Tuple[str, str, str]]:
     return sorted(categorize_passwords(get_passwords()))
 
 
+def get_password_clear_time() -> str:
+    return os.environ.get("PASSWORD_STORE_CLIP_TIME", "45")
+
+
+def passcli_copy(pass_tuple: Tuple[str, str, str], n: int) -> int:
+    # passing env to ensure local shell vars are passed
+    # popen allows to easily capture stderr and stdout
+    p = subprocess.run(
+        ["pass", "show", f"-c{n}", tuple_to_path(pass_tuple)],
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    return p.returncode
+
+
 @cache
 def full_passpath(dst: str) -> str:
     return os.path.join(get_passstore_path(), dst)

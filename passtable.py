@@ -421,6 +421,8 @@ class PassTable(DataTable):
         ("n", "new_entry", "Add new entry"),
         ("m", "move_entry", "Move entry"),
         ("r", "reverse_selection", "Reverse selection"),
+        ("p", "copy_password", "Copy password"),
+        ("u", "copy_username", "Copy username"),
         ("t", "testing", ""),
     ]
 
@@ -438,8 +440,37 @@ class PassTable(DataTable):
 
         self.sort_sync_enumerate()
 
-    def action_testing(self) -> None:
-        self.sort_sync_enumerate()
+    def action_copy_password(self) -> None:
+        if self.row_count > 0:
+            return_code = passutils.passcli_copy(self.current_row.pass_tuple, 1)
+
+            self.app.clear_notifications()
+
+            if return_code != 0:
+                self.notify("Ensure the password field exists.", title="Copy failed!")
+            else:
+                self.notify(
+                    f"Password will be cleared in {passutils.get_password_clear_time()} seconds.",
+                    title="Password copied!",
+                )
+
+    def action_copy_username(self) -> None:
+        if self.row_count > 0:
+            return_code = passutils.passcli_copy(self.current_row.pass_tuple, 2)
+
+            self.app.clear_notifications()
+
+            if return_code != 0:
+                self.notify(
+                    "Ensure the user field exists.",
+                    title="Copy failed!",
+                    severity="error",
+                )
+            else:
+                self.notify(
+                    f"Username will be cleared in {passutils.get_password_clear_time()} seconds.",
+                    title="Password copied!",
+                )
 
     def action_move_entry(self) -> None:
         self.app.push_screen(MoveDialog(self))
