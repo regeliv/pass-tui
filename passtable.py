@@ -411,8 +411,8 @@ class PassTable(DataTable):
     BINDINGS = [
         ("shift+up", "select_up", "Select many entries"),
         ("shift+down", "select_down", "Select many entries"),
-        ("ctrl+shift+up", "deselect_up", "Select many entries"),
-        ("ctrl+shift+down", "deselect_down", "Select many entries"),
+        ("ctrl+up", "deselect_up", "Select many entries"),
+        ("ctrl+down", "deselect_down", "Select many entries"),
         ("escape", "deselect_all", "Remove selection"),
         ("space", "select_entry", "Select/deselect"),
         ("a", "select_all", "Select all entries"),
@@ -424,8 +424,9 @@ class PassTable(DataTable):
         ("t", "testing", ""),
     ]
 
-    def sort_enumerate(self) -> None:
+    def sort_sync_enumerate(self) -> None:
         self.sort(key=lambda row: (row[1], row[2], row[3]))
+        self.sync()
         self.update_enumeration()
 
     def on_mount(self) -> None:
@@ -435,13 +436,10 @@ class PassTable(DataTable):
         self.add_column("URL", key="URL")
         self.cursor_type = "row"
 
-        for row in passutils.get_categorized_passwords():
-            self.add_row(*row)
-        self.sort_enumerate()
+        self.sort_sync_enumerate()
 
     def action_testing(self) -> None:
-        rows = list(self.all_rows)
-        rows[0].update(("new_profile", "", "url.com"))
+        self.sort_sync_enumerate()
 
     def action_move_entry(self) -> None:
         self.app.push_screen(MoveDialog(self))
@@ -513,15 +511,6 @@ class PassTable(DataTable):
             self.current_row.toggle()
             self.force_refresh()
 
-    def add_row(
-        self,
-        *cells: CellType,
-        height: int | None = 1,
-        key: str | None = None,
-        label: TextType | None = None,
-    ) -> RowKey:
-        return super().add_row(Checkbox(), *cells, height=height, key=key, label=label)
-
     def delete_selected(self) -> None:
         # we cannot use the iterator in the for loop directly, because the size changes
         selected_rows = list(self.selected_rows)
@@ -540,6 +529,41 @@ class PassTable(DataTable):
         # only when focus changes to another column.
         self._update_count += 1
         self.refresh()
+
+    def sync(self) -> None:
+        new_passes = passutils.get_categorized_passwords()
+        synced_passes = []
+        old_passes = list(self.all_rows)
+        i, j = 0, 0
+
+        old_cursor = self.cursor_row
+        cursor_diff = 0
+
+        while i < len(new_passes) and j < len(old_passes):
+            new_tuple = new_passes[i]
+            old_pass = old_passes[j]
+
+            if new_tuple < old_pass.pass_tuple:
+                synced_passes.append((Checkbox(), *new_tuple))
+                i += 1
+                cursor_diff += 1
+            elif new_tuple > old_pass.pass_tuple:
+                j += 1
+                cursor_diff -= 1
+            else:
+                synced_passes.append((old_pass.checkbox, *new_tuple))
+                i += 1
+                j += 1
+
+        while i < len(new_passes):
+            synced_passes.append((Checkbox(), *new_passes[i]))
+            i += 1
+
+        self.clear()
+        for row in synced_passes:
+            self.add_row(*row)
+
+        self.move_cursor(row=old_cursor + cursor_diff)
 
     def move(self, dst: str, keep_cats: bool) -> None:
         change_list_rows: list[PassRow] = list(self.selected_rows)
@@ -570,7 +594,7 @@ class PassTable(DataTable):
                 if ok:
                     row.update(passutils.path_to_tuple(os.path.join(dst, url)))
 
-        self.sort_enumerate()
+        self.sort_sync_enumerate()
 
         if n_fails == 0:
             self.notify("Move succeeded.", title="Success!")
@@ -580,7 +604,8 @@ class PassTable(DataTable):
                 title="Partial Failure",
                 severity="warning",
             )
-        # TODO: sync
+
+        self.sort_sync_enumerate()
 
     @property
     def current_row(self) -> PassRow:
@@ -589,8 +614,8 @@ class PassTable(DataTable):
 
     @property
     def all_rows(self) -> Iterator[PassRow]:
-        for key in self.rows:
-            yield PassRow(table=self, key=key)
+        for row in self.ordered_rows:
+            yield PassRow(table=self, key=row.key)
 
     @property
     def selected_rows(self) -> Iterator[PassRow]:

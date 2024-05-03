@@ -1,7 +1,7 @@
 import os
 import shutil
 import subprocess
-from functools import cache, cmp_to_key
+from functools import cache
 from typing import Tuple, Iterable
 
 
@@ -68,7 +68,7 @@ def categorize_passwords(passwords: list[str]) -> list[Tuple[str, str, str]]:
 
 
 def get_categorized_passwords() -> list[Tuple[str, str, str]]:
-    return categorize_passwords(get_passwords())
+    return sorted(categorize_passwords(get_passwords()))
 
 
 @cache
