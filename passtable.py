@@ -1,10 +1,10 @@
 from __future__ import annotations
 from rich.text import Text, TextType
 
-from textual import widgets
+from textual import on, widgets
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll, Grid
 from textual.widgets import (
     Button,
     ContentSwitcher,
@@ -15,12 +15,12 @@ from textual.widgets import (
     Static,
     Label,
 )
-
 from textual.widgets.data_table import CellType, RowKey
 
 from typing import Iterator, Tuple
 from dataclasses import dataclass
 import os
+import string
 
 import passutils
 
@@ -149,6 +149,7 @@ class NewEntryDialog(ModalScreen):
     }
     #options {
         width: 1fr;
+        grid-size: 2 3;
     }
     
     """
@@ -157,9 +158,12 @@ class NewEntryDialog(ModalScreen):
         ("enter", "leave_and_save", "Delete selected entries"),
         ("down,ctrl+down", "focus_next", "Focus name"),
         ("up,ctrl+up", "focus_previous", "Focus text area"),
+        ("ctrl+s", "reveal_password", "Show/hide password"),
+        ("ctrl+r", "regenerate_password", "Regenerate password"),
     ]
 
     table: PassTable
+    alphabet: str
 
     def __init__(
         self,
@@ -169,7 +173,53 @@ class NewEntryDialog(ModalScreen):
         classes: str | None = None,
     ) -> None:
         self.table = table
+        self.alphabet = string.ascii_letters
         super().__init__(name, id, classes)
+
+    @property
+    def passfield(self) -> Input:
+        return self.query_one("#random-input", expect_type=Input)
+
+    # TODO: move to property
+    def get_radio_choice(self) -> str:
+        # done only to appease lsp
+        if button := self.query_one(
+            "#radio-choice", expect_type=RadioSet
+        ).pressed_button:
+            if button.name is not None:
+                return button.name
+
+        # unreachable
+        return ""
+
+    @on(widgets.Checkbox.Changed)
+    def update_alphabet(self) -> None:
+        upper = self.query_one("#upper", expect_type=widgets.Checkbox).value
+        lower = self.query_one("#lower", expect_type=widgets.Checkbox).value
+        nums = self.query_one("#nums", expect_type=widgets.Checkbox).value
+        punctuation = self.query_one("#punctuation", expect_type=widgets.Checkbox).value
+
+        new_alphabet = ""
+        if upper:
+            new_alphabet += string.ascii_uppercase
+        if lower:
+            new_alphabet += string.ascii_lowercase
+        if nums:
+            new_alphabet += string.digits
+        if punctuation:
+            new_alphabet += string.punctuation
+
+        if new_alphabet == "":
+            new_alphabet = string.ascii_lowercase
+
+        self.alphabet = new_alphabet
+        self.action_regenerate_password()
+
+    def action_reveal_password(self) -> None:
+        self.passfield.password = not self.passfield.password
+
+    def on_mount(self) -> None:
+        self.update_alphabet()
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
@@ -180,18 +230,31 @@ class NewEntryDialog(ModalScreen):
             yield Input(placeholder="username")
 
             with Vertical(id="password-input"):
-                yield Input(value="x98lhdeag/?", id="random-input", password=True)
+                yield Input(
+                    id="random-input",
+                    password=True,
+                )
                 with Horizontal():
-                    # TODO: content switcher
+                    # TODO: tabbed content switcher
                     with RadioSet(id="radio-choice"):
-                        yield RadioButton("Symbols")
-                        yield RadioButton("Words")
-                    with Vertical(id="options"):
+                        yield RadioButton("Symbols", value=True, name="symbols")
+                        yield RadioButton("Words", name="words")
+                    with Grid(id="options"):
                         # TODO: Rename local checkbox
-                        yield widgets.Checkbox("A-Z")
-                        yield widgets.Checkbox("a-z")
-                        yield widgets.Checkbox("0-9")
-                        yield widgets.Checkbox("/*+&...")
+                        yield widgets.Checkbox("A-Z", id="upper", value=True)
+                        yield widgets.Checkbox("a-z", id="lower", value=True)
+                        yield widgets.Checkbox("0-9", id="nums", value=True)
+                        yield widgets.Checkbox("/*+&...", id="punctuation", value=True)
+                        yield Input(value="16", type="number")
+
+    @on(RadioSet.Changed)
+    def action_regenerate_password(self) -> None:
+        choice = self.get_radio_choice()
+        match choice:
+            case "words":
+                self.passfield.value = passutils.get_rand_passphrase(5, "")[0]
+            case "symbols":
+                self.passfield.value = passutils.get_rand_password(self.alphabet, 16)[0]
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self.query_one(ContentSwitcher).current = event.button.id
