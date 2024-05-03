@@ -1,4 +1,6 @@
+import math
 import os
+import secrets
 import shutil
 import subprocess
 from functools import cache
@@ -73,6 +75,42 @@ def get_categorized_passwords() -> list[Tuple[str, str, str]]:
 
 def get_password_clear_time() -> str:
     return os.environ.get("PASSWORD_STORE_CLIP_TIME", "45")
+
+
+def get_rand_password(alphabet: str, n: int) -> (str, float):
+    # I quite dislike this, because there will be most likely
+    # be plenty of copies
+    password = "".join([secrets.choice(alphabet) for _ in range(n)])
+    entropy = math.log2(len(alphabet) ** n)
+    return password, entropy
+
+
+def get_rand_passphrase(n: int, separators: str) -> (str, float):
+    # I quite dislike this, because there will be most likely
+    # be plenty of copies
+    passphrase = ""
+    with open("eff_large.wordlist", "r") as word_list:
+        words = word_list.readlines()
+
+        if len(separators) > 0:
+            passphrase += secrets.choice(words).rstrip("\r\n")
+            for _ in range(n - 1):
+                passphrase += secrets.choice(separators) + secrets.choice(words).rstrip(
+                    "\r\n"
+                )
+        else:
+            passphrase = "".join(
+                [secrets.choice(words).rstrip("\r\n") for _ in range(n)]
+            )
+
+    entropy = 7776**n
+    if len(separators) > 0:
+        print(f"{len(separators)} {n - 1}")
+        entropy *= len(separators) ** (n - 1)
+
+    entropy = math.log2(entropy)
+
+    return (passphrase, entropy)
 
 
 def passcli_copy(pass_tuple: Tuple[str, str, str], n: int) -> int:
