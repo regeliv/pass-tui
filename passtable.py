@@ -383,6 +383,7 @@ class PassTable(DataTable):
             scrollbar-color-active: $surface;
             scrollbar-color-hover: $surface;
             scrollbar-corner-color: $surface;
+            height: 100%;
         }
         PassTable > .datatable--cursor {
             background: $surface;
@@ -434,9 +435,6 @@ class PassTable(DataTable):
         self.add_column("URL", key="URL")
         self.cursor_type = "row"
 
-        # for number, row in enumerate(passutils.get_categorized_passwords(), start=1):
-        #     label = Text(str(number), justify="right")
-        #     self.add_row(*row, label=label)
         for row in passutils.get_categorized_passwords():
             self.add_row(*row)
         self.sort_enumerate()
@@ -546,30 +544,42 @@ class PassTable(DataTable):
     def move(self, dst: str, keep_cats: bool) -> None:
         change_list_rows: list[PassRow] = list(self.selected_rows)
         if passutils.move_has_conflicts(self.selected_tuples, dst, keep_cats):
-            # TODO: send notification
+            self.notify(
+                "Conflicts detected, resolve them before moving.",
+                title="Failed to move passwords",
+                severity="error",
+            )
             return
+
+        n_fails = 0
+        if keep_cats:
+            for row in change_list_rows:
+                _, cats, url = row.pass_tuple
+                ok = passutils.move(
+                    row.pass_tuple,
+                    os.path.join(dst, cats),
+                )
+                n_fails += not ok
+                if ok:
+                    row.update(passutils.path_to_tuple(os.path.join(dst, cats, url)))
         else:
-            n_fails = 0
-            if keep_cats:
-                for row in change_list_rows:
-                    _, cats, url = row.pass_tuple
-                    ok = passutils.move(
-                        row.pass_tuple,
-                        os.path.join(dst, cats),
-                    )
-                    n_fails += not ok
-                    if ok:
-                        pass
-                        # TODO: update table
-            else:
-                for row in change_list_rows:
-                    _, cats, url = row.pass_tuple
-                    ok = passutils.move(row.pass_tuple, dst)
-                    n_fails += not ok
-                    if ok:
-                        row.update(passutils.path_to_tuple(os.path.join(dst, url)))
+            for row in change_list_rows:
+                _, cats, url = row.pass_tuple
+                ok = passutils.move(row.pass_tuple, dst)
+                n_fails += not ok
+                if ok:
+                    row.update(passutils.path_to_tuple(os.path.join(dst, url)))
+
         self.sort_enumerate()
-        # TODO: notify of failures and success
+
+        if n_fails == 0:
+            self.notify("Move succeeded.", title="Success!")
+        else:
+            self.notify(
+                f"Failed to move {n_fails} password(s).",
+                title="Partial Failure",
+                severity="warning",
+            )
         # TODO: sync
 
     @property
