@@ -77,7 +77,7 @@ def get_password_clear_time() -> str:
     return os.environ.get("PASSWORD_STORE_CLIP_TIME", "45")
 
 
-def get_rand_password(alphabet: str, n: int) -> (str, float):
+def get_rand_password(alphabet: str, n: int) -> Tuple[str, float]:
     # I quite dislike this, because there will be most likely
     # be plenty of copies
     password = "".join([secrets.choice(alphabet) for _ in range(n)])
@@ -85,7 +85,7 @@ def get_rand_password(alphabet: str, n: int) -> (str, float):
     return password, entropy
 
 
-def get_rand_passphrase(n: int, separators: str) -> (str, float):
+def get_rand_passphrase(n: int, separators: str) -> Tuple[str, float]:
     # I quite dislike this, because there will be most likely
     # be plenty of copies
     passphrase = ""
