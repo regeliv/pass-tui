@@ -188,3 +188,31 @@ def move(pass_tuple: Tuple[str, str, str], dst: str) -> bool:
     except:
         return False
     return True
+
+
+def passcli_insert(
+    pass_tuple: Tuple[str, str, str], username: str, password: str
+) -> bool:
+    """Creates a file corresponding to the pass_tuple
+    with password as the first line and username as second
+    """
+    target_path = full_passpath(tuple_to_path(pass_tuple))
+    if os.path.exists(target_path):
+        return False
+
+    p = subprocess.Popen(
+        ["pass", "insert", "--multiline", tuple_to_path(pass_tuple)],
+        env=os.environ,
+        stdout=subprocess.DEVNULL,
+        stdin=subprocess.PIPE,
+    )
+    if username:
+        p.communicate(bytes(password + "\n" + username + "\n", "utf-8"))
+    else:
+        p.communicate(bytes(password + "\n", "utf-8"))
+
+    # appeasing lsp
+    if p.stdin:
+        p.stdin.close()
+
+    return p.returncode == 0
