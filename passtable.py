@@ -5,7 +5,7 @@ from textual import on, widgets
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
 from textual.containers import Horizontal, Vertical, VerticalScroll, Grid
-from textual.validation import Number
+from textual.validation import Length, Number
 from textual.widgets import (
     Button,
     ContentSwitcher,
@@ -167,6 +167,12 @@ class NewEntryDialog(ModalScreen):
     table: PassTable
     alphabet: str
 
+    # TODO: add entropy calculation, it shouldn't be done by the generating
+    # function, but by this class
+    # iterate through whole password and find out which symbol classes are used
+
+    # TODO: add +, - keybinds
+
     def __init__(
         self,
         table: PassTable,
@@ -180,7 +186,7 @@ class NewEntryDialog(ModalScreen):
 
     @property
     def passfield(self) -> Input:
-        return self.query_one("#random-input", expect_type=Input)
+        return self.query_one("#password", expect_type=Input)
 
     @property
     def chosen_mode(self) -> str:
@@ -219,14 +225,17 @@ class NewEntryDialog(ModalScreen):
         with Vertical(id="dialog"):
             yield Label("New", id="question")
 
-            yield Input(placeholder="profile/category")
-            yield Input(placeholder="URL")
-            yield Input(placeholder="username")
+            yield Input(placeholder="profile/category", id="profile-category")
+            yield Input(placeholder="URL", id="url", validators=[Length(minimum=1)])
+            yield Input(placeholder="username", id="username")
 
             with Vertical(id="password-input"):
                 yield Input(
-                    id="random-input",
+                    id="password",
                     password=True,
+                    validators=[
+                        Length(minimum=1),
+                    ],
                 )
                 with TabbedContent("Symbols", "Words"):
                     with Grid(id="symbols"):
@@ -255,6 +264,7 @@ class NewEntryDialog(ModalScreen):
                             restrict="[0-9]*",
                         )
 
+    @on(Input.Submitted, "#words-len,#symbols-len")
     @on(Input.Changed, "#seps")
     @on(TabbedContent.TabActivated)
     def action_regenerate_password(self) -> None:
@@ -281,8 +291,37 @@ class NewEntryDialog(ModalScreen):
     def action_leave(self):
         self.app.pop_screen()
 
-    def action_leave_and_save(self):
-        # self.table.new_entry(prof-cat, url, username, password)
+    @on(Input.Submitted, "#profile-category,#username,#url,#password")
+    async def action_leave_and_save(self):
+        prof_cat = self.query_one("#profile-category", expect_type=Input).value
+        username = self.query_one("#username", expect_type=Input).value
+
+        url = self.query_one("#url", expect_type=Input)
+        # ensure that the validator is run even if the user made no input
+        url.validate(url.value)
+
+        if not url.is_valid:
+            self.notify(
+                "The URL field cannot be empty",
+                title="Insertion failed",
+                severity="error",
+            )
+            return
+        url = url.value
+
+        password = self.query_one("#password", expect_type=Input)
+        password.validate(password.value)
+
+        if not password.is_valid:
+            self.notify(
+                "The password field cannot be empty",
+                title="Insertion failed",
+                severity="error",
+            )
+            return
+        password = password.value
+
+        self.table.insert(prof_cat, url, username, password)
         self.app.pop_screen()
 
 
@@ -450,6 +489,7 @@ class PassRow:
 
     def __str__(self) -> str:
         """Returns the path representation of a password entry"""
+        # TODO: use os.path.join
         return "/".join(
             [path_fragment for path_fragment in self.pass_tuple if path_fragment != ""]
         )
@@ -677,6 +717,23 @@ class PassTable(DataTable):
             self.add_row(*row)
 
         self.move_cursor(row=old_cursor + cursor_diff)
+
+    def insert(self, prof_cat: str, url: str, username: str, password: str):
+        pass_tuple = passutils.path_to_tuple(os.path.join(prof_cat, url))
+
+        if passutils.passcli_insert(pass_tuple, username, password):
+            self.notify(
+                "Password insertion succeeded.",
+                title="Success!",
+            )
+        else:
+            self.notify(
+                "Password insertion failed.",
+                title="Insertion failure",
+                severity="error",
+            )
+
+        self.sort_sync_enumerate()
 
     def move(self, dst: str, keep_cats: bool) -> None:
         change_list_rows: list[PassRow] = list(self.selected_rows)
