@@ -1,16 +1,81 @@
+from __future__ import annotations
 import math
 import os
 import secrets
 import shutil
 import subprocess
 from functools import cache
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, NamedTuple
 
-# TODO: add pass_tuple as named tuple
+
+class PassTuple(NamedTuple):
+    """A representation of a relative password path
+    as used by pass
+
+    Attributes:
+        profile: first directory if any in password path, empty string otherwise
+        cats: categories between first directory and the file if any, empty string otherwise
+        url: the file in password path
+    """
+
+    profile: str
+    cats: str
+    url: str
+
+    def __str__(self):
+        return os.path.join(self.profile, self.cats, self.url)
+
+    @property
+    def fs_path(self):
+        """Absolute filesystem path to the file corresponding
+        to the relative pass path, includes the .gpg extension
+        """
+        return os.path.join(
+            get_passstore_path(), self.profile, self.cats, self.url + ".gpg"
+        )
+
+    @classmethod
+    def from_str(cls, path: str) -> PassTuple:
+        """Converts path in string form to PassTuple
+
+        Args:
+            path: relative path to a password, as used by pass
+            e.g dir1/dir2/dir3/password.org
+
+        Returns:
+            A PassTuple
+
+        """
+        split_path = path.split("/")
+        match len(split_path):
+            case 1:  # only url
+                return cls("", "", split_path[0])
+            case 2:  # profile and url
+                return cls(split_path[0], "", split_path[1])
+            case _:  # profile, one or more categories, url
+                return cls(
+                    split_path[0], os.path.join(*split_path[1:-1]), split_path[-1]
+                )
+
+
+def get_password_clear_time() -> str:
+    """Returns how long a password is stored in clipboard
+
+    Returns:
+        A string corresponding to the number of seconds the password
+        is stored in clipboard
+    """
+    return os.environ.get("PASSWORD_STORE_CLIP_TIME", "45")
 
 
 @cache
 def get_passstore_path() -> str:
+    """Returns the path to user's password store
+
+    Returns:
+        A string corresponding to the absolute path
+        of the user's password store directory
+    """
     pass_dir = os.getenv(
         "PASSWORD_STORE_DIR",
         default=os.path.expanduser("~/.password-store"),
@@ -19,14 +84,41 @@ def get_passstore_path() -> str:
 
 
 def passstore_exists() -> bool:
+    """Check for existence of the user's password store
+
+    Returns:
+        A bool specifying whether the user's passwords store
+        path exists and is a directory
+    """
     return os.path.isdir(get_passstore_path())
 
 
 def is_hidden(path: str) -> bool:
+    """Returns if a file or directory described by a path is hidden.
+
+    Args:
+        path: Path to a directory or file, does not need actually exist
+
+    Returns:
+        A bool specifying if the directory or file is hidden
+    """
     return os.path.basename(path).startswith(".")
 
 
 def get_passwords() -> list[str]:
+    """Fetches the list of relative password paths
+
+    Hidden files or files in hidden directories are
+    not included.
+
+    Returns:
+        A list of strings corresponding to relative password
+        paths. The strings are in format used by pass executable
+        to conduct operations. For example, password at
+        $PASSWORD_STORE_DIR/dir1/dir2/dir3/pass.org.gpg
+        has relative path of dir1/dir2/dir3/pass.org
+
+    """
     pass_dir = get_passstore_path()
     passes = []
 
@@ -47,36 +139,16 @@ def get_passwords() -> list[str]:
     return passes
 
 
-def path_to_tuple(password_path: str) -> Tuple[str, str, str]:
-    """Given a string of the form (profile)?/(category/)*(url)
-    returns a tuple of three strings of the form:
-    (profile, category1/category2/..., url).
-    If no profile or category is specified the corresponding field is empty
-    """
-    split_path = password_path.split("/")
-    match len(split_path):
-        case 1:  # only url
-            return ("", "", split_path[0])
-        case 2:  # profile and url
-            return (split_path[0], "", split_path[1])
-        case _:  # profile, one or more categories, url
-            return (split_path[0], os.path.join(*split_path[1:-1]), split_path[-1])
-
-
-def categorize_passwords(passwords: list[str]) -> list[Tuple[str, str, str]]:
+def categorize_passwords(passwords: list[str]) -> list[PassTuple]:
     pass_tuples = []
     for password_path in passwords:
-        pass_tuples.append(path_to_tuple(password_path))
+        pass_tuples.append(PassTuple.from_str(password_path))
 
     return pass_tuples
 
 
-def get_categorized_passwords() -> list[Tuple[str, str, str]]:
+def get_categorized_passwords() -> list[PassTuple]:
     return sorted(categorize_passwords(get_passwords()))
-
-
-def get_password_clear_time() -> str:
-    return os.environ.get("PASSWORD_STORE_CLIP_TIME", "45")
 
 
 def get_rand_password(alphabet: str, n: int) -> Tuple[str, float]:
@@ -115,35 +187,13 @@ def get_rand_passphrase(n: int, separators: str) -> Tuple[str, float]:
     return (passphrase, entropy)
 
 
-def passcli_copy(pass_tuple: Tuple[str, str, str], n: int) -> int:
-    # passing env to ensure local shell vars are passed
-    # popen allows to easily capture stderr and stdout
-    p = subprocess.run(
-        ["pass", "show", f"-c{n}", tuple_to_path(pass_tuple)],
-        text=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    return p.returncode
-
-
 @cache
-def full_passpath(dst: str) -> str:
+def dst_to_fs_path(dst: str) -> str:
     return os.path.join(get_passstore_path(), dst)
 
 
-@cache
-def tuple_to_path(pass_tuple: Tuple[str, str, str]) -> str:
-    return os.path.join(pass_tuple[0], *pass_tuple[1:])
-
-
-def passcli_edit(pass_tuple: Tuple[str, str, str]) -> None:
-    subprocess.run(["pass", "edit", tuple_to_path(pass_tuple)])
-
-
 def move_has_conflicts(
-    pass_tuples: Iterable[Tuple[str, str, str]], dst: str, keep_cats: bool
+    pass_tuples: Iterable[PassTuple], dst: str, keep_cats: bool
 ) -> bool:
     """Returns true if a move of the following passwords would result in a conflict
     Move will result in a conflict if the directory or file with the same name
@@ -173,45 +223,58 @@ def move_has_conflicts(
     return False
 
 
-def move(pass_tuple: Tuple[str, str, str], dst: str) -> bool:
+def move(pass_tuple: PassTuple, dst: str) -> bool:
     """Moves the file corresponding to pass_tuple to dst path in the pass store
     returns True on success, False on failure
     """
     # TODO: delete directory if it was left empty
     try:
-        os.makedirs(full_passpath(dst), exist_ok=True)
+        os.makedirs(dst_to_fs_path(dst), exist_ok=True)
     except:
         return False
 
     try:
-        shutil.move(
-            full_passpath(tuple_to_path(pass_tuple) + ".gpg"), full_passpath(dst)
-        )
+        shutil.move(pass_tuple.fs_path, dst_to_fs_path(dst))
     except:
         return False
     return True
 
 
-def rm(pass_tuple: Tuple[str, str, str]) -> bool:
+def rm(pass_tuple: PassTuple) -> bool:
     try:
-        os.remove(full_passpath(tuple_to_path(pass_tuple) + ".gpg"))
+        os.remove(pass_tuple.fs_path)
         return True
     except:
         return False
 
 
-def passcli_insert(
-    pass_tuple: Tuple[str, str, str], username: str, password: str
-) -> bool:
+def passcli_copy(pass_tuple: PassTuple, n: int) -> int:
+    # passing env to ensure local shell vars are passed
+    # popen allows to easily capture stderr and stdout
+    p = subprocess.run(
+        ["pass", "show", f"-c{n}", str(pass_tuple)],
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    return p.returncode
+
+
+def passcli_edit(pass_tuple: PassTuple) -> None:
+    subprocess.run(["pass", "edit", str(pass_tuple)])
+
+
+def passcli_insert(pass_tuple: PassTuple, username: str, password: str) -> bool:
     """Creates a file corresponding to the pass_tuple
     with password as the first line and username as second
     """
-    target_path = full_passpath(tuple_to_path(pass_tuple))
+    target_path = pass_tuple.fs_path
     if os.path.exists(target_path):
         return False
 
     p = subprocess.Popen(
-        ["pass", "insert", "--multiline", tuple_to_path(pass_tuple)],
+        ["pass", "insert", "--multiline", pass_tuple.fs_path],
         env=os.environ,
         stdout=subprocess.DEVNULL,
         stdin=subprocess.PIPE,

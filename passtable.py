@@ -25,6 +25,7 @@ import os
 import string
 
 import passutils
+from passutils import PassTuple
 
 
 class DeleteDialog(ModalScreen):
@@ -451,9 +452,9 @@ class PassRow:
         return self.checkbox.checked
 
     @property
-    def pass_tuple(self) -> Tuple[str, str, str]:
+    def pass_tuple(self) -> PassTuple:
         """Returns the tuple containing password metadata"""
-        return tuple(self._data[1:])
+        return PassTuple(*self._data[1:])
 
     @property
     def pass_data(self) -> list[str]:
@@ -472,7 +473,7 @@ class PassRow:
     def url(self) -> str:
         return self.pass_data[2]
 
-    def update(self, pass_tuple: Tuple[str, str, str]) -> None:
+    def update(self, pass_tuple: PassTuple) -> None:
         profile, cats, url = pass_tuple
         self.table.update_cell(self.key, "Profile", profile)
         self.table.update_cell(self.key, "Category", cats)
@@ -731,7 +732,7 @@ class PassTable(DataTable):
         self.move_cursor(row=old_cursor + cursor_diff)
 
     def insert(self, prof_cat: str, url: str, username: str, password: str):
-        pass_tuple = passutils.path_to_tuple(os.path.join(prof_cat, url))
+        pass_tuple = PassTuple.from_str(os.path.join(prof_cat, url))
 
         if passutils.passcli_insert(pass_tuple, username, password):
             self.notify(
@@ -767,14 +768,14 @@ class PassTable(DataTable):
                 )
                 n_fails += not ok
                 if ok:
-                    row.update(passutils.path_to_tuple(os.path.join(dst, cats, url)))
+                    row.update(PassTuple.from_str(os.path.join(dst, cats, url)))
         else:
             for row in change_list_rows:
                 _, cats, url = row.pass_tuple
                 ok = passutils.move(row.pass_tuple, dst)
                 n_fails += not ok
                 if ok:
-                    row.update(passutils.path_to_tuple(os.path.join(dst, url)))
+                    row.update(PassTuple.from_str(os.path.join(dst, url)))
 
         self.sort_sync_enumerate()
 
@@ -811,7 +812,7 @@ class PassTable(DataTable):
             yield self.current_row
 
     @property
-    def selected_tuples(self) -> Iterator[Tuple[str, str, str]]:
+    def selected_tuples(self) -> Iterator[PassTuple]:
         count = 0
         for row in self.all_rows:
             if row.is_selected:
