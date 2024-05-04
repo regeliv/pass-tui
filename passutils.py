@@ -274,7 +274,7 @@ def passcli_insert(pass_tuple: PassTuple, username: str, password: str) -> bool:
         return False
 
     p = subprocess.Popen(
-        ["pass", "insert", "--multiline", pass_tuple.fs_path],
+        ["pass", "insert", "--multiline", str(pass_tuple)],
         env=os.environ,
         stdout=subprocess.DEVNULL,
         stdin=subprocess.PIPE,

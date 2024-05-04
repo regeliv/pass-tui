@@ -14,7 +14,9 @@ from textual.widgets import (
     OptionList,
     Static,
     Label,
+    TabPane,
     TabbedContent,
+    Checkbox,
 )
 from textual.widgets.data_table import RowKey
 
@@ -34,11 +36,17 @@ class FindScreen(ModalScreen):
         FindScreen {
             align: center middle;
         }
-        Vertical {
-            height: 30%;
+        #vertical {
+            align: center bottom;
+            width: 60;
+            height: 20;
         }
-        OptionList {
-            height: 1fr;
+        #input {
+            border: round;
+        }
+        #option-list {
+            height: 5fr;
+            border: round;
         }
     """
 
@@ -80,8 +88,8 @@ class FindScreen(ModalScreen):
             self.option_list.highlighted -= 1
 
     def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Input()
+        with Vertical(id="vertical"):
+            yield Input(id="input")
             yield OptionList(id="option-list")
 
     @on(Input.Changed)
@@ -104,11 +112,11 @@ class FindScreen(ModalScreen):
 
     def action_select_and_leave(self) -> None:
         option_idx = self.option_list.highlighted
-        if option_idx:
+        # appeasing lsp, will always execute
+        if option_idx is not None:
             option = str(self.option_list.get_option_at_index(option_idx).prompt)
             self.table.select(option)
 
-        # appeasing lsp, will always execute
         self.app.pop_screen()
 
 
@@ -117,12 +125,32 @@ class DeleteDialog(ModalScreen):
     DeleteDialog {
         align: center middle;
     }
-    #question {
+
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 20; 
+        border: round;
+        background: $surface;
+    }
+
+    #label {
         column-span: 2;
         height: 1fr;
         width: 1fr;
         content-align: center middle;
     }
+
+    #entry-list {
+        column-span: 2;
+        height: 5fr;
+        width: 1fr;
+        border: round;
+    }
+
     #confirm {
         column-span: 2;
         height: 1fr;
@@ -135,22 +163,6 @@ class DeleteDialog(ModalScreen):
         height: 1fr;
         width: 1fr;
         content-align: center middle;
-    }
-    #dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 60;
-        height: 20; 
-        border: thick $background 80%;
-        background: $surface;
-    }
-    #entry-list {
-        column-span: 2;
-        height: 5fr;
-        width: 1fr;
-        background: $panel
     }
     """
 
@@ -172,17 +184,16 @@ class DeleteDialog(ModalScreen):
         super().__init__(name, id, classes)
 
     def compose(self) -> ComposeResult:
-
-        yield Vertical(
-            Label("Are you sure you want to delete the following?", id="question"),
-            VerticalScroll(
+        with Vertical(id="dialog"):
+            yield Label("Are you sure you want to delete the following?", id="label")
+            yield VerticalScroll(
                 *[Static(str(row)) for row in self.table.selected_rows],
                 id="entry-list",
-            ),
-            Static("THIS ACTION IS IRREVERSIBLE!", id="warning"),
-            Static("<enter> to confirm, <esc> to exit", id="confirm"),
-            id="dialog",
-        )
+            )
+            yield Static(
+                Text.from_markup("[b red]THIS ACTION IS IRREVERSIBLE![/]"), id="warning"
+            )
+            yield Static("[b]<enter>[/] to confirm, [b]<esc>[/] to exit", id="confirm")
 
     def action_leave(self):
         self.app.pop_screen()
@@ -194,28 +205,12 @@ class DeleteDialog(ModalScreen):
 
 class NewEntryDialog(ModalScreen):
     DEFAULT_CSS = """
+    $accent: mediumaquamarine;
+    $border: round $accent;
     NewEntryDialog {
         align: center middle;
     }
-    #question {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-    #confirm {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-    #warning {
-        color: $error;
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
+
     #dialog {
         grid-size: 2;
         grid-gutter: 1 2;
@@ -223,9 +218,47 @@ class NewEntryDialog(ModalScreen):
         padding: 0 1;
         width: 60;
         height: 30; 
-        border: thick $background 80%;
+        border: $border;
         background: $surface;
     }
+
+    #label {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+
+    .input-box {
+        border: $border;
+        background: $surface;
+    }
+
+    .input-box:focus {
+        border: round mediumspringgreen;
+        background: $surface;
+    }
+
+
+    .input-box.-invalid {
+        border: round indianred;
+        background: $surface;
+    }
+
+    .input-box.-invalid:focus {
+        border: round tomato;
+        background: $surface;
+    }
+
+    TabbedContent #--content-tab-symbols-pane {
+        color: $accent;
+    }
+
+    TabbedContent #--content-tab-words-pane {
+        color: $accent;
+    }
+
+
     #password-input {
         column-span: 2;
         height: 5fr;
@@ -277,12 +310,61 @@ class NewEntryDialog(ModalScreen):
     def chosen_mode(self) -> str:
         return self.query_one(TabbedContent).active
 
-    @on(widgets.Checkbox.Changed)
+    def on_mount(self) -> None:
+        self.query_one("#profile-category").border_title = "profile/category"
+        self.query_one("#url").border_title = "URL"
+        self.query_one("#username").border_title = "username"
+        self.query_one("#password").border_title = "password"
+        self.query_one("#dialog").border_title = "New"
+        self.update_alphabet()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dialog"):
+            yield Input(id="profile-category", classes="input-box")
+            yield Input(id="url", classes="input-box", validators=[Length(minimum=1)])
+            yield Input(id="username", classes="input-box")
+            yield Input(
+                id="password",
+                classes="input-box",
+                password=True,
+                validators=[
+                    Length(minimum=1),
+                ],
+            )
+
+            with TabbedContent(id="password-input"):
+                with TabPane("Symbols", id="symbols-pane"):
+                    with Grid(id="symbols"):
+                        yield Input(
+                            value="16",
+                            id="symbols-len",
+                            type="number",
+                            validators=[Number(minimum=1)],
+                            restrict="[0-9]*",
+                        )
+                        yield Checkbox("A-Z", id="upper", value=True)
+                        yield Checkbox("a-z", id="lower", value=True)
+                        yield Checkbox("0-9", id="nums", value=True)
+                        yield Checkbox("/*+&...", id="punctuation", value=True)
+                with TabPane("Words", id="words-pane"):
+                    with Grid(id="words"):
+                        yield Input(
+                            placeholder="seperators", id="seps", valid_empty=True
+                        )
+                        yield Input(
+                            value="5",
+                            id="words-len",
+                            type="number",
+                            validators=[Number(minimum=1)],
+                            restrict="[0-9]*",
+                        )
+
+    @on(Checkbox.Changed)
     def update_alphabet(self) -> None:
-        upper = self.query_one("#upper", expect_type=widgets.Checkbox).value
-        lower = self.query_one("#lower", expect_type=widgets.Checkbox).value
-        nums = self.query_one("#nums", expect_type=widgets.Checkbox).value
-        punctuation = self.query_one("#punctuation", expect_type=widgets.Checkbox).value
+        upper = self.query_one("#upper", expect_type=Checkbox).value
+        lower = self.query_one("#lower", expect_type=Checkbox).value
+        nums = self.query_one("#nums", expect_type=Checkbox).value
+        punctuation = self.query_one("#punctuation", expect_type=Checkbox).value
 
         new_alphabet = ""
         if upper:
@@ -303,59 +385,13 @@ class NewEntryDialog(ModalScreen):
     def action_reveal_password(self) -> None:
         self.passfield.password = not self.passfield.password
 
-    def on_mount(self) -> None:
-        self.update_alphabet()
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="dialog"):
-            yield Label("New", id="question")
-
-            yield Input(placeholder="profile/category", id="profile-category")
-            yield Input(placeholder="URL", id="url", validators=[Length(minimum=1)])
-            yield Input(placeholder="username", id="username")
-
-            with Vertical(id="password-input"):
-                yield Input(
-                    id="password",
-                    password=True,
-                    validators=[
-                        Length(minimum=1),
-                    ],
-                )
-                with TabbedContent("Symbols", "Words"):
-                    with Grid(id="symbols"):
-                        # TODO: Rename local checkbox
-                        yield Input(
-                            value="16",
-                            id="symbols-len",
-                            type="number",
-                            validators=[Number(minimum=1)],
-                            restrict="[0-9]*",
-                        )
-                        yield widgets.Checkbox("A-Z", id="upper", value=True)
-                        yield widgets.Checkbox("a-z", id="lower", value=True)
-                        yield widgets.Checkbox("0-9", id="nums", value=True)
-                        yield widgets.Checkbox("/*+&...", id="punctuation", value=True)
-
-                    with Grid(id="words"):
-                        yield Input(
-                            placeholder="seperators", id="seps", valid_empty=True
-                        )
-                        yield Input(
-                            value="5",
-                            id="words-len",
-                            type="number",
-                            validators=[Number(minimum=1)],
-                            restrict="[0-9]*",
-                        )
-
     @on(Input.Submitted, "#words-len,#symbols-len")
     @on(Input.Changed, "#seps")
     @on(TabbedContent.TabActivated)
     def action_regenerate_password(self) -> None:
         choice = self.chosen_mode
         match choice:
-            case "tab-1":
+            case "symbols-pane":
                 len = self.query_one("#symbols-len", expect_type=Input)
                 if not len.is_valid:
                     return
@@ -364,7 +400,7 @@ class NewEntryDialog(ModalScreen):
                 self.passfield.value = passutils.get_rand_password(self.alphabet, len)[
                     0
                 ]
-            case "tab-2":
+            case "words-pane":
                 len = self.query_one("#words-len", expect_type=Input)
                 if not len.is_valid:
                     return
@@ -412,28 +448,19 @@ class NewEntryDialog(ModalScreen):
 
 class MoveDialog(ModalScreen):
     DEFAULT_CSS = """
+        $accent: mediumaquamarine;
+        $border: round $accent;
+        $no_border: blank;
         MoveDialog {
             align: center middle;
         }
-        #question {
+        #label {
             column-span: 2;
             height: 1fr;
             width: 1fr;
             content-align: center middle;
         }
-        #confirm {
-            column-span: 2;
-            height: 1fr;
-            width: 1fr;
-            content-align: center middle;
-        }
-        #warning {
-            color: $error;
-            column-span: 2;
-            height: 1fr;
-            width: 1fr;
-            content-align: center middle;
-        }
+
         #dialog {
             grid-size: 2;
             grid-gutter: 1 2;
@@ -441,22 +468,40 @@ class MoveDialog(ModalScreen):
             padding: 0 1;
             width: 60;
             height: 20; 
-            border: thick $background 80%;
+            border: $border;
             background: $surface;
         }
+
         #entry-list {
             column-span: 2;
             height: 5fr;
             width: 1fr;
-            background: $panel
+            border: $border;
+        }
+
+        #input {
+            border: $border;
+            background: $surface;
+        }
+
+        #checkbox {
+            background: $surface;
+            border: $no_border;
+        }
+
+        #confirm {
+            column-span: 2;
+            height: 1fr;
+            width: 1fr;
+            content-align: center middle;
         }
         """
 
     BINDINGS = [
-        ("escape", "leave", "Leave and don't delete"),
-        ("enter", "leave_and_save", "Delete selected entries"),
-        ("ctrl+down,down", "focus_next", "Focus name"),
-        ("ctrl+up", "focus_previous", "Focus text area"),
+        ("escape", "leave", "Leave and don't move"),
+        Binding("enter", "leave_and_move", "Move selected entries", priority=True),
+        ("tab", "focus_next", "Focus next"),
+        ("shift+tab", "focus_previous", "Focus previous"),
     ]
 
     table: PassTable
@@ -472,34 +517,44 @@ class MoveDialog(ModalScreen):
         super().__init__(name, id, classes)
 
     def compose(self) -> ComposeResult:
-        yield Vertical(
-            Label("Move", id="question"),
-            VerticalScroll(
+        with Vertical(id="dialog"):
+            yield VerticalScroll(
                 *[Static(str(row)) for row in self.table.selected_rows],
                 id="entry-list",
-            ),
-            Input(placeholder="destination"),
-            widgets.Checkbox("Keep categories?", id="checkbox"),
-            Static("<enter> to confirm, <esc> to exit", id="confirm"),
-            id="dialog",
-        )
+            )
+            yield Input(placeholder="destination", id="input")
+            yield Checkbox("Keep categories?", id="checkbox")
+            yield Static(
+                Text.from_markup("[b]<enter>[/] to confirm, [b]<esc>[/] to exit"),
+                id="confirm",
+            )
 
     def on_mount(self) -> None:
+        self.query_one("#dialog").border_title = "Move"
         input_field = self.query_one(Input)
         input_field.focus()
+        vs = self.query_one(VerticalScroll)
+        vs.can_focus = False
+
+        self.watch(vs, "show_vertical_scrollbar", self.on_scrollbar)
+
+    def on_scrollbar(self, old_val: bool, new_val: bool) -> None:
+        if new_val:
+            vs = self.query_one(VerticalScroll)
+            vs.can_focus = True
 
     def action_leave(self):
         self.app.pop_screen()
 
-    def action_leave_and_save(self):
-        keep_categories = self.query_one(widgets.Checkbox).value
+    def action_leave_and_move(self):
+        keep_categories = self.query_one(Checkbox).value
         dst = self.query_one(Input).value
         self.table.move(dst, keep_categories)
         self.app.pop_screen()
 
 
 @dataclass
-class Checkbox:
+class RowCheckbox:
     checked: bool = False
 
     def __str__(self) -> str:
@@ -528,7 +583,7 @@ class PassRow:
         return self.table.get_row(self.key)
 
     @property
-    def checkbox(self) -> Checkbox:
+    def checkbox(self) -> RowCheckbox:
         return self._data[0]
 
     @property
@@ -582,7 +637,10 @@ class PassRow:
 
 class PassTable(DataTable):
     DEFAULT_CSS = """
+        $accent: mediumaquamarine;
+        $cursor: seagreen;
         PassTable {
+            
             scrollbar-background: $surface;
             scrollbar-background-hover: $surface;
             scrollbar-background-active: $surface;
@@ -591,10 +649,11 @@ class PassTable(DataTable):
             scrollbar-color-hover: $surface;
             scrollbar-corner-color: $surface;
             height: 100%;
+            border: round $accent;
         }
         PassTable > .datatable--cursor {
             background: $surface;
-            color: #d75fd7; /* ansi 256-bit orchid */
+            color: $cursor;
         }
 
         PassTable > .datatable--hover {
@@ -607,7 +666,7 @@ class PassTable(DataTable):
 
         PassTable > .datatable--header-cursor {
             background: $surface;
-            color: #d75fd7; /* ansi 256-bit orchid */
+            color: $cursor;
         }
 
         PassTable > .datatable--header-hover {
@@ -639,6 +698,8 @@ class PassTable(DataTable):
         self.update_enumeration()
 
     def on_mount(self) -> None:
+        self.border_title = Text.from_markup("[b][N]ew | [D]elete | [E]dit[/]")
+        self.border_subtitle = Text.from_markup("[b][M]ove | [F]ind | ^[H]elp[/]")
         self.add_column("", key="checkbox")
         self.add_column("Profile", key="Profile")
         self.add_column("Category", key="Category")
@@ -774,7 +835,10 @@ class PassTable(DataTable):
     def select(self, pass_str: str) -> None:
         pass_tuple = PassTuple.from_str(pass_str)
         for row in self.all_rows:
+            print(f"comparing {pass_tuple} with {row.pass_tuple}")
             if row.pass_tuple == pass_tuple:
+                print("Matched!")
+
                 self.move_cursor(row=self.get_row_index(row.key))
                 return
 
@@ -803,7 +867,7 @@ class PassTable(DataTable):
             old_pass = old_passes[j]
 
             if new_tuple < old_pass.pass_tuple:
-                synced_passes.append((Checkbox(), *new_tuple))
+                synced_passes.append((RowCheckbox(), *new_tuple))
                 i += 1
                 cursor_diff += 1
             elif new_tuple > old_pass.pass_tuple:
@@ -815,7 +879,7 @@ class PassTable(DataTable):
                 j += 1
 
         while i < len(new_passes):
-            synced_passes.append((Checkbox(), *new_passes[i]))
+            synced_passes.append((RowCheckbox(), *new_passes[i]))
             i += 1
 
         self.clear()

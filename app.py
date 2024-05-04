@@ -10,7 +10,7 @@ from passtable import PassTable
 class Header(Widget):
     DEFAULT_CSS = """
     Header {
-        height: 3;
+        height: 1;
         dock: top;
     }
     Static {
