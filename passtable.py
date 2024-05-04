@@ -32,24 +32,6 @@ from passutils import PassTuple
 
 
 class FindScreen(ModalScreen):
-    DEFAULT_CSS = """
-        FindScreen {
-            align: center middle;
-        }
-        #vertical {
-            align: center bottom;
-            width: 60;
-            height: 20;
-        }
-        #input {
-            border: round;
-        }
-        #option-list {
-            height: 5fr;
-            border: round;
-        }
-    """
-
     BINDINGS = [
         ("escape", "leave", ""),
         Binding("down", "down", "", priority=True),
@@ -77,6 +59,7 @@ class FindScreen(ModalScreen):
         for row in self.table.all_rows:
             self.option_list.add_option(str(row))
         self.option_list.highlighted = 0
+        self.option_list.can_focus = False
 
     def action_down(self) -> None:
         # appeasing lsp
@@ -121,45 +104,6 @@ class FindScreen(ModalScreen):
 
 
 class DeleteDialog(ModalScreen):
-    DEFAULT_CSS = """
-    $border: round mediumaquamarine;
-    DeleteDialog {
-        align: center middle;
-    }
-
-    #dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 60;
-        height: 20; 
-        border: $border;
-        background: $surface;
-    }
-
-    #entry-list {
-        column-span: 2;
-        height: 5fr;
-        width: 1fr;
-        border: $border;
-    }
-
-    #confirm {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-    #warning {
-        color: $error;
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-    """
-
     BINDINGS = [
         ("escape,q", "leave", "Leave and don't delete"),
         ("enter", "delete", "Delete selected entries"),
@@ -200,84 +144,8 @@ class DeleteDialog(ModalScreen):
 
 
 class NewEntryDialog(ModalScreen):
-    DEFAULT_CSS = """
-    $accent: mediumaquamarine;
-    $border: round $accent;
-    NewEntryDialog {
-        align: center middle;
-    }
-
-    #dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 60;
-        height: 30; 
-        border: $border;
-        background: $surface;
-    }
-
-    #label {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-
-    .input-box {
-        border: $border;
-        background: $surface;
-    }
-
-    .input-box:focus {
-        border: round mediumspringgreen;
-        background: $surface;
-    }
-
-
-    .input-box.-invalid {
-        border: round indianred;
-        background: $surface;
-    }
-
-    .input-box.-invalid:focus {
-        border: round tomato;
-        background: $surface;
-    }
-
-    TabbedContent #--content-tab-symbols-pane {
-        color: $accent;
-    }
-
-    TabbedContent #--content-tab-words-pane {
-        color: $accent;
-    }
-
-    Checkbox {
-        background: $surface;
-        border: blank;
-    }
-
-    #password-input {
-        column-span: 2;
-        height: 5fr;
-        width: 1fr;
-    }
-
-    #symbols {
-        width: 1fr;
-        grid-size: 2 3;
-    }
-
-    #symbols-len {
-        column-span: 2;
-    }
-    
-    """
     BINDINGS = [
         ("escape", "leave", "Leave and don't delete"),
-        # ("enter", "leave_and_save", "Delete selected entries"),
         ("down,ctrl+down", "focus_next", "Focus name"),
         ("up,ctrl+up", "focus_previous", "Focus text area"),
         ("ctrl+s", "reveal_password", "Show/hide password"),
@@ -482,56 +350,6 @@ class NewEntryDialog(ModalScreen):
 
 
 class MoveDialog(ModalScreen):
-    DEFAULT_CSS = """
-        $accent: mediumaquamarine;
-        $border: round $accent;
-        $no_border: blank;
-        MoveDialog {
-            align: center middle;
-        }
-        #label {
-            column-span: 2;
-            height: 1fr;
-            width: 1fr;
-            content-align: center middle;
-        }
-
-        #dialog {
-            grid-size: 2;
-            grid-gutter: 1 2;
-            grid-rows: 1fr 3;
-            padding: 0 1;
-            width: 60;
-            height: 20; 
-            border: $border;
-            background: $surface;
-        }
-
-        #entry-list {
-            column-span: 2;
-            height: 5fr;
-            width: 1fr;
-            border: $border;
-        }
-
-        #input {
-            border: $border;
-            background: $surface;
-        }
-
-        #checkbox {
-            background: $surface;
-            border: $no_border;
-        }
-
-        #confirm {
-            column-span: 2;
-            height: 1fr;
-            width: 1fr;
-            content-align: center middle;
-        }
-        """
-
     BINDINGS = [
         ("escape", "leave", "Leave and don't move"),
         Binding("enter", "leave_and_move", "Move selected entries", priority=True),
@@ -671,44 +489,6 @@ class PassRow:
 
 
 class PassTable(DataTable):
-    DEFAULT_CSS = """
-        $accent: mediumaquamarine;
-        $cursor: seagreen;
-        PassTable {
-            
-            scrollbar-background: $surface;
-            scrollbar-background-hover: $surface;
-            scrollbar-background-active: $surface;
-            scrollbar-color: $surface;
-            scrollbar-color-active: $surface;
-            scrollbar-color-hover: $surface;
-            scrollbar-corner-color: $surface;
-            height: 100%;
-            border: round $accent;
-        }
-        PassTable > .datatable--cursor {
-            background: $surface;
-            color: $cursor;
-        }
-
-        PassTable > .datatable--hover {
-            background: $surface;
-        }
-
-        PassTable > .datatable--header {
-            background: $surface;
-        }
-
-        PassTable > .datatable--header-cursor {
-            background: $surface;
-            color: $cursor;
-        }
-
-        PassTable > .datatable--header-hover {
-            background: $surface;
-        }
-    """
-
     BINDINGS = [
         ("shift+up", "select_up", "Select many entries"),
         ("shift+down", "select_down", "Select many entries"),
@@ -850,12 +630,10 @@ class PassTable(DataTable):
             self.force_refresh()
 
     def delete_selected(self) -> None:
-        # we cannot use the iterator in the for loop directly, because the size changes
         selected_rows = list(self.selected_rows)
         n_fails = 0
         for row in selected_rows:
             n_fails += not passutils.rm(row.pass_tuple)
-            # self.remove_row(row.key)
         if n_fails > 0:
             self.notify(
                 f"Failed to remove {n_fails} passwords.",

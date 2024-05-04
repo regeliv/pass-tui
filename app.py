@@ -3,6 +3,7 @@ from __future__ import annotations
 from textual.app import App, ComposeResult
 from textual.widget import Widget
 from textual.widgets import Placeholder, Static
+from rich.text import Text
 
 from passtable import PassTable
 
@@ -20,10 +21,11 @@ class Header(Widget):
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("Pass", id="pass")
+        yield Static(Text.from_markup("[b]Pass[/]"), id="pass")
 
 
 class Pass(App):
+    CSS_PATH = "styles.css"
     BINDINGS = [
         ("q", "quit", "Quit"),
     ]

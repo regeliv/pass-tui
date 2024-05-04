@@ -1,22 +1,255 @@
-/* #sidebar { */
-/*     text-align: center; */
-/*     text-style: bold; */
-/*     width: 15%; */
-/*     height: 100%; */
-/* } */
-/**/
-/* .menu-button { */
-/*     text-align: center; */
-/*     width: 20%; */
-/* } */
+$accent: mediumaquamarine;
+$border: round $accent;
+$cursor: mediumspringgreen;
+$no_border: blank;
+$focus: round $cursor;
+$surface: rgba(10, 10, 10, 1.0);
 
-#dialog{
-    grid-size: 2;
-    grid-gutter: 1 2;
-    grid-rows: 1fr 3;
-    padding: 0 1;
-    width: 60;
-    height: 11;
-    border: thick $background 80%;
-    background: $surface;
+FindScreen {
+    align: center middle;
+
+    #vertical {
+        width: 60;
+        height: 20;
+    }
+    #input {
+        border: $border;
+        background: $surface;
+    }
+
+    #input:focus {
+        border: round $cursor;
+        background: $surface;
+    }
+    #option-list {
+        height: 5fr;
+        border: $border;
+        background: $surface;
+        scrollbar-color: $accent;
+        scrollbar-color-hover: $cursor;
+        scrollbar-color-active: $cursor;
+        scrollbar-background: $surface;
+        scrollbar-background-hover: $surface;
+        .option-list--option-highlighted {
+            color: $cursor;
+            background: $surface;
+        }
+
+        .option-list--option-hover {
+            background: $surface;
+            color: $accent;
+        }
+
+        .option-list--option-hover-highlighted {
+            background: $surface;
+            color: $cursor;
+        }
+    }
+
+}
+DeleteDialog {
+    align: center middle;
+
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 20; 
+        border: $border;
+        background: $surface;
+    }
+
+    #entry-list {
+        column-span: 2;
+        height: 5fr;
+        width: 1fr;
+        border: $border;
+    }
+
+    #confirm {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #warning {
+        color: $error;
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+}
+
+NewEntryDialog {
+    align: center middle;
+
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 30; 
+        border: $border;
+        background: $surface;
+    }
+
+    #label {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+
+    .input-box {
+        border: $border;
+        background: $surface;
+    }
+
+    .input-box:focus {
+        border: round $cursor;
+        background: $surface;
+    }
+
+
+    .input-box.-invalid {
+        border: round indianred;
+        background: $surface;
+    }
+
+    .input-box.-invalid:focus {
+        border: round tomato;
+        background: $surface;
+    }
+
+    TabbedContent #--content-tab-symbols-pane {
+        color: $accent;
+    }
+
+    TabbedContent #--content-tab-words-pane {
+        color: $accent;
+    }
+
+    Checkbox {
+        background: $surface;
+        border: $no_border;
+    }
+
+    #password-input {
+        column-span: 2;
+        height: 5fr;
+        width: 1fr;
+    }
+
+    #symbols {
+        width: 1fr;
+        grid-size: 2 3;
+    }
+
+    #symbols-len {
+        column-span: 2;
+    }
+}
+
+MoveDialog {
+    align: center middle;
+
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 20; 
+        border: $border;
+        background: $surface;
+    }
+
+    #entry-list {
+        column-span: 2;
+        height: 5fr;
+        width: 1fr;
+        border: $border;
+
+        scrollbar-color: $accent;
+        scrollbar-color-hover: $cursor;
+        scrollbar-color-active: $cursor;
+        scrollbar-background: $surface;
+        scrollbar-background-hover: $surface;
+    }
+
+    #entry-list:focus {
+        border: $focus;
+    }
+
+    #input {
+        border: $border;
+        background: $surface;
+    }
+
+    #input:focus {
+        border: $focus;
+    }
+
+    Checkbox {
+        background: $surface;
+        border: $no_border;
+    }
+
+    #confirm {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+}
+
+
+PassTable {
+    
+    scrollbar-background: $surface;
+    scrollbar-background-hover: $surface;
+    scrollbar-background-active: $surface;
+    scrollbar-color: $surface;
+    scrollbar-color-active: $surface;
+    scrollbar-color-hover: $surface;
+    scrollbar-corner-color: $surface;
+    height: 100%;
+    border: $border;
+
+    .datatable--cursor {
+        background: $surface;
+        color: $cursor;
+    }
+
+    .datatable--hover {
+        background: $surface;
+    }
+
+    .datatable--header {
+        background: $surface;
+    }
+
+    .datatable--header-cursor {
+        background: $surface;
+        color: $cursor;
+    }
+
+    .datatable--header-hover {
+        background: $surface;
+    }
+}
+
+Header {
+    height: 2;
+    dock: top;
+
+    Static {
+        align: center middle;
+        text-align: center;
+        color: $accent;
+    }
 }
