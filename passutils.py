@@ -6,6 +6,8 @@ import subprocess
 from functools import cache
 from typing import Tuple, Iterable
 
+# TODO: add pass_tuple as named tuple
+
 
 @cache
 def get_passstore_path() -> str:
@@ -188,6 +190,14 @@ def move(pass_tuple: Tuple[str, str, str], dst: str) -> bool:
     except:
         return False
     return True
+
+
+def rm(pass_tuple: Tuple[str, str, str]) -> bool:
+    try:
+        os.remove(full_passpath(tuple_to_path(pass_tuple) + ".gpg"))
+        return True
+    except:
+        return False
 
 
 def passcli_insert(

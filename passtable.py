@@ -666,11 +666,23 @@ class PassTable(DataTable):
 
     def delete_selected(self) -> None:
         # we cannot use the iterator in the for loop directly, because the size changes
+        # TODO: make it do actually delete files
         selected_rows = list(self.selected_rows)
+        n_fails = 0
         for row in selected_rows:
-            self.remove_row(row.key)
+            n_fails += not passutils.rm(row.pass_tuple)
+            # self.remove_row(row.key)
+        if n_fails > 0:
+            self.notify(
+                f"Failed to remove {n_fails} passwords.",
+                title="Removal failure",
+                severity="warning",
+            )
+        else:
+            self.notify("Removal succeeded.", title="Success!")
 
-        self.update_enumeration()
+        self.sort_sync_enumerate()
+        # self.update_enumeration()
 
     def update_enumeration(self) -> None:
         for number, row in enumerate(self.ordered_rows, start=1):
