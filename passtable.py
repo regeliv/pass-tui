@@ -1,19 +1,19 @@
 from __future__ import annotations
-from functools import cache, cached_property
-from rich.text import Text, TextType
+from functools import cached_property
+from rich.text import Text
 
-from textual import on, widgets
+from textual import on
 from textual.app import ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.screen import ModalScreen
-from textual.containers import Horizontal, Vertical, VerticalScroll, Grid
+from textual.containers import Vertical, VerticalScroll, Grid
 from textual.validation import Length, Number
+from textual.widget import Widget
 from textual.widgets import (
     Input,
     DataTable,
     OptionList,
     Static,
-    Label,
     TabPane,
     TabbedContent,
     Checkbox,
@@ -31,10 +31,54 @@ import passutils
 from passutils import PassTuple
 
 
+class CheatSheet(Widget):
+    bindings: list[BindingType]
+
+    def __init__(
+        self,
+        bindings: list[BindingType],
+        *children: Widget,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+        disabled: bool = False,
+    ) -> None:
+        self.bindings = bindings
+        super().__init__(
+            *children, name=name, id=id, classes=classes, disabled=disabled
+        )
+
+    def on_mount(self):
+        table = self.query_one(DataTable)
+        table.add_columns(Text("Key", justify="right"))
+        table.add_column("Action")
+        table.cursor_type = "row"
+        table.can_focus = False
+        self.border_title = "Cheatsheet"
+        for binding in self.bindings:
+            if type(binding) == Binding:
+                if binding.show:
+                    if binding.key_display:
+                        table.add_row(
+                            Text.from_markup(
+                                f"[b]{binding.key_display}[/]", justify="right"
+                            ),
+                            Text.from_markup(binding.description, justify="left"),
+                        )
+                    else:
+                        table.add_row(
+                            Text.from_markup(f"[b]{binding.key}[/]", justify="right"),
+                            Text.from_markup(binding.description, justify="left"),
+                        )
+
+    def compose(self) -> ComposeResult:
+        yield DataTable()
+
+
 class FindScreen(ModalScreen):
     BINDINGS = [
-        ("escape", "leave", ""),
-        Binding("down", "down", "", priority=True),
+        Binding("escape", "leave", "Leave"),
+        Binding("down", "down", "Move", priority=True),
         Binding("up", "up", "", priority=True),
         Binding("enter", "select_and_leave", priority=True),
     ]
@@ -105,8 +149,8 @@ class FindScreen(ModalScreen):
 
 class DeleteDialog(ModalScreen):
     BINDINGS = [
-        ("escape,q", "leave", "Leave and don't delete"),
-        ("enter", "delete", "Delete selected entries"),
+        Binding("escape", "leave", "Leave without deleting", key_display="<esc>"),
+        Binding("enter", "delete", "Delete", key_display="<cr>"),
     ]
 
     table: PassTable
@@ -133,7 +177,7 @@ class DeleteDialog(ModalScreen):
             yield Static(
                 Text.from_markup("[b red]THIS ACTION IS IRREVERSIBLE![/]"), id="warning"
             )
-            yield Static("[b]<enter>[/] to confirm, [b]<esc>[/] to exit", id="confirm")
+        yield CheatSheet(self.BINDINGS)
 
     def action_leave(self):
         self.app.pop_screen()
@@ -145,13 +189,27 @@ class DeleteDialog(ModalScreen):
 
 class NewEntryDialog(ModalScreen):
     BINDINGS = [
-        ("escape", "leave", "Leave and don't delete"),
-        ("down,ctrl+down", "focus_next", "Focus name"),
-        ("up,ctrl+up", "focus_previous", "Focus text area"),
-        ("ctrl+s", "reveal_password", "Show/hide password"),
-        ("ctrl+r", "regenerate_password", "Regenerate password"),
-        Binding("ctrl+a", "increase_len", "Increase password_len", priority=True),
-        Binding("ctrl+x", "decrease_len", "Decrease password_len", priority=True),
+        Binding("escape", "leave", "Leave without saving", key_display="<esc>"),
+        Binding("tab", "focus_next", "Next", key_display="<tab>"),
+        Binding("shift+tab", "focus_previous", "Previous", key_display="shift+<tab>"),
+        Binding("ctrl+s", "reveal_password", "Show/hide password", key_display="^s"),
+        Binding(
+            "ctrl+r", "regenerate_password", "Regenerate password", key_display="^r"
+        ),
+        Binding(
+            "ctrl+a",
+            "increase_len",
+            "Increase password length",
+            key_display="^a",
+            priority=True,
+        ),
+        Binding(
+            "ctrl+x",
+            "decrease_len",
+            "Decrease password length",
+            key_display="^x",
+            priority=True,
+        ),
     ]
 
     table: PassTable
@@ -231,6 +289,7 @@ class NewEntryDialog(ModalScreen):
                             validators=[Number(minimum=1)],
                             restrict="[0-9]*",
                         )
+        yield CheatSheet(self.BINDINGS)
 
     def action_increase_len(self) -> None:
         match self.chosen_mode:
@@ -351,10 +410,10 @@ class NewEntryDialog(ModalScreen):
 
 class MoveDialog(ModalScreen):
     BINDINGS = [
-        ("escape", "leave", "Leave and don't move"),
-        Binding("enter", "leave_and_move", "Move selected entries", priority=True),
-        ("tab", "focus_next", "Focus next"),
-        ("shift+tab", "focus_previous", "Focus previous"),
+        Binding("escape", "leave", "Leave without saving", key_display="<esc>"),
+        Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
+        Binding("tab", "focus_next", "Next"),
+        Binding("shift+tab", "focus_previous", "Previous"),
     ]
 
     table: PassTable
@@ -367,6 +426,7 @@ class MoveDialog(ModalScreen):
         classes: str | None = None,
     ) -> None:
         self.table = table
+        self.cheatsheet = True
         super().__init__(name, id, classes)
 
     def compose(self) -> ComposeResult:
@@ -377,10 +437,8 @@ class MoveDialog(ModalScreen):
             )
             yield Input(placeholder="destination", id="input")
             yield Checkbox("Keep categories?", id="checkbox")
-            yield Static(
-                Text.from_markup("[b]<enter>[/] to confirm, [b]<esc>[/] to exit"),
-                id="confirm",
-            )
+
+        yield CheatSheet(self.BINDINGS)
 
     def on_mount(self) -> None:
         self.query_one("#dialog").border_title = "Move"
@@ -490,21 +548,21 @@ class PassRow:
 
 class PassTable(DataTable):
     BINDINGS = [
-        ("shift+up", "select_up", "Select many entries"),
-        ("shift+down", "select_down", "Select many entries"),
-        ("ctrl+up", "deselect_up", "Select many entries"),
-        ("ctrl+down", "deselect_down", "Select many entries"),
-        ("escape", "deselect_all", "Remove selection"),
-        ("space", "select_entry", "Select/deselect"),
-        ("a", "select_all", "Select all entries"),
-        ("d", "delete_entry", "Delete"),
-        ("e", "edit_entry", "Delete"),
-        ("n", "new_entry", "Add new entry"),
-        ("m", "move_entry", "Move entry"),
-        ("r", "reverse_selection", "Reverse selection"),
-        ("p", "copy_password", "Copy password"),
-        ("u", "copy_username", "Copy username"),
-        ("f,/", "find", "Find a password"),
+        Binding("shift+up", "select_up", "Select many entries"),
+        Binding("shift+down", "select_down", "Select many entries"),
+        Binding("ctrl+up", "deselect_up", "Select many entries"),
+        Binding("ctrl+down", "deselect_down", "Select many entries"),
+        Binding("escape", "deselect_all", "Remove selection"),
+        Binding("space", "select_entry", "Select/deselect"),
+        Binding("a", "select_all", "Select all entries"),
+        Binding("d", "delete_entry", "Delete"),
+        Binding("e", "edit_entry", "Delete"),
+        Binding("n", "new_entry", "Add new entry"),
+        Binding("m", "move_entry", "Move entry"),
+        Binding("r", "reverse_selection", "Reverse selection"),
+        Binding("p", "copy_password", "Copy password"),
+        Binding("u", "copy_username", "Copy username"),
+        Binding("f,/", "find", "Find a password"),
     ]
 
     def sort_sync_enumerate(self) -> None:
@@ -514,7 +572,7 @@ class PassTable(DataTable):
 
     def on_mount(self) -> None:
         self.border_title = Text.from_markup("[b][N]ew | [D]elete | [E]dit[/]")
-        self.border_subtitle = Text.from_markup("[b][M]ove | [F]ind | ^[H]elp[/]")
+        self.border_subtitle = Text.from_markup("[b][M]ove | [F]ind")
         self.add_column("", key="checkbox")
         self.add_column("Profile", key="Profile")
         self.add_column("Category", key="Category")

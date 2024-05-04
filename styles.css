@@ -1,9 +1,38 @@
 $accent: mediumaquamarine;
 $border: round $accent;
 $cursor: mediumspringgreen;
+$error_focus: tomato;
+$error: indianred;
 $no_border: blank;
 $focus: round $cursor;
 $surface: rgba(10, 10, 10, 1.0);
+
+Toast.-information {
+    border: $border;
+    background: $surface;
+}
+
+Toast.-information .toast--title {
+    color: $accent
+}
+
+Toast.-error {
+    background: $surface;
+    border: round $error_focus;
+}
+
+Toast.-error .toast--title {
+    color: $error_focus;
+}
+
+Toast.-warning {
+    background: $surface;
+    border: round $error;
+}
+
+Toast.-warning .toast--title {
+    color: $error;
+}
 
 FindScreen {
     align: center middle;
@@ -92,7 +121,7 @@ NewEntryDialog {
         grid-rows: 1fr 3;
         padding: 0 1;
         width: 60;
-        height: 30; 
+        height: 28; 
         border: $border;
         background: $surface;
     }
@@ -116,12 +145,12 @@ NewEntryDialog {
 
 
     .input-box.-invalid {
-        border: round indianred;
+        border: round $error;
         background: $surface;
     }
 
     .input-box.-invalid:focus {
-        border: round tomato;
+        border: round $error_focus;
         background: $surface;
     }
 
@@ -205,8 +234,44 @@ MoveDialog {
         width: 1fr;
         content-align: center middle;
     }
+
+
 }
 
+CheatSheet {
+    dock: bottom;
+    height: auto;
+    border: $border;
+
+    scrollbar-background: $surface;
+    scrollbar-background-hover: $surface;
+    scrollbar-background-active: $surface;
+    scrollbar-color: $surface;
+    scrollbar-color-active: $surface;
+    scrollbar-color-hover: $surface;
+    scrollbar-corner-color: $surface;
+    background: $surface;
+
+    .datatable--cursor {
+        background: $surface;
+    }
+
+    .datatable--hover {
+        background: $surface;
+    }
+
+    .datatable--header {
+        background: $surface;
+    }
+
+    .datatable--header-cursor {
+        background: $surface;
+    }
+
+    .datatable--header-hover {
+        background: $surface;
+    }
+}
 
 PassTable {
     
@@ -241,6 +306,7 @@ PassTable {
     .datatable--header-hover {
         background: $surface;
     }
+
 }
 
 Header {
