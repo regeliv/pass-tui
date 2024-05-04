@@ -151,15 +151,14 @@ def get_categorized_passwords() -> list[PassTuple]:
     return sorted(categorize_passwords(get_passwords()))
 
 
-def get_rand_password(alphabet: str, n: int) -> Tuple[str, float]:
+def get_rand_password(alphabet: str, n: int) -> str:
     # I quite dislike this, because there will be most likely
     # be plenty of copies
     password = "".join([secrets.choice(alphabet) for _ in range(n)])
-    entropy = math.log2(len(alphabet) ** n)
-    return password, entropy
+    return password
 
 
-def get_rand_passphrase(n: int, separators: str) -> Tuple[str, float]:
+def get_rand_passphrase(n: int, separators: str) -> str:
     # I quite dislike this, because there will be most likely
     # be plenty of copies
     passphrase = ""
@@ -177,14 +176,7 @@ def get_rand_passphrase(n: int, separators: str) -> Tuple[str, float]:
                 [secrets.choice(words).rstrip("\r\n") for _ in range(n)]
             )
 
-    entropy = 7776**n
-    if len(separators) > 0:
-        print(f"{len(separators)} {n - 1}")
-        entropy *= len(separators) ** (n - 1)
-
-    entropy = math.log2(entropy)
-
-    return (passphrase, entropy)
+    return passphrase
 
 
 @cache

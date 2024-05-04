@@ -122,6 +122,7 @@ class FindScreen(ModalScreen):
 
 class DeleteDialog(ModalScreen):
     DEFAULT_CSS = """
+    $border: round mediumaquamarine;
     DeleteDialog {
         align: center middle;
     }
@@ -133,22 +134,15 @@ class DeleteDialog(ModalScreen):
         padding: 0 1;
         width: 60;
         height: 20; 
-        border: round;
+        border: $border;
         background: $surface;
-    }
-
-    #label {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
     }
 
     #entry-list {
         column-span: 2;
         height: 5fr;
         width: 1fr;
-        border: round;
+        border: $border;
     }
 
     #confirm {
@@ -183,9 +177,11 @@ class DeleteDialog(ModalScreen):
         self.table = table
         super().__init__(name, id, classes)
 
+    def on_mount(self) -> None:
+        self.query_one("#dialog").border_title = "Delete"
+
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
-            yield Label("Are you sure you want to delete the following?", id="label")
             yield VerticalScroll(
                 *[Static(str(row)) for row in self.table.selected_rows],
                 id="entry-list",
@@ -258,38 +254,40 @@ class NewEntryDialog(ModalScreen):
         color: $accent;
     }
 
+    Checkbox {
+        background: $surface;
+        border: blank;
+    }
 
     #password-input {
         column-span: 2;
         height: 5fr;
         width: 1fr;
     }
-    #radio-choice {
-        width: 1fr;
-    }
+
     #symbols {
         width: 1fr;
         grid-size: 2 3;
+    }
+
+    #symbols-len {
+        column-span: 2;
     }
     
     """
     BINDINGS = [
         ("escape", "leave", "Leave and don't delete"),
-        ("enter", "leave_and_save", "Delete selected entries"),
+        # ("enter", "leave_and_save", "Delete selected entries"),
         ("down,ctrl+down", "focus_next", "Focus name"),
         ("up,ctrl+up", "focus_previous", "Focus text area"),
         ("ctrl+s", "reveal_password", "Show/hide password"),
         ("ctrl+r", "regenerate_password", "Regenerate password"),
+        Binding("ctrl+a", "increase_len", "Increase password_len", priority=True),
+        Binding("ctrl+x", "decrease_len", "Decrease password_len", priority=True),
     ]
 
     table: PassTable
     alphabet: str
-
-    # TODO: add entropy calculation, it shouldn't be done by the generating
-    # function, but by this class
-    # iterate through whole password and find out which symbol classes are used
-
-    # TODO: add +, - keybinds
 
     def __init__(
         self,
@@ -316,6 +314,9 @@ class NewEntryDialog(ModalScreen):
         self.query_one("#username").border_title = "username"
         self.query_one("#password").border_title = "password"
         self.query_one("#dialog").border_title = "New"
+        self.query_one("#words-len").border_title = "length"
+        self.query_one("#symbols-len").border_title = "length"
+        self.query_one("#seps").border_title = "separators"
         self.update_alphabet()
 
     def compose(self) -> ComposeResult:
@@ -339,6 +340,7 @@ class NewEntryDialog(ModalScreen):
                             value="16",
                             id="symbols-len",
                             type="number",
+                            classes="input-box",
                             validators=[Number(minimum=1)],
                             restrict="[0-9]*",
                         )
@@ -349,15 +351,50 @@ class NewEntryDialog(ModalScreen):
                 with TabPane("Words", id="words-pane"):
                     with Grid(id="words"):
                         yield Input(
-                            placeholder="seperators", id="seps", valid_empty=True
+                            id="seps",
+                            valid_empty=True,
+                            classes="input-box",
                         )
                         yield Input(
                             value="5",
                             id="words-len",
+                            classes="input-box",
                             type="number",
                             validators=[Number(minimum=1)],
                             restrict="[0-9]*",
                         )
+
+    def action_increase_len(self) -> None:
+        match self.chosen_mode:
+            case "symbols-pane":
+                len = self.query_one("#symbols-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(16)
+                    return
+                len.value = str(int(len.value) + 1)
+            case "words-pane":
+                len = self.query_one("#words-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(5)
+                    return
+                len.value = str(int(len.value) + 1)
+        self.action_regenerate_password()
+
+    def action_decrease_len(self) -> None:
+        match self.chosen_mode:
+            case "symbols-pane":
+                len = self.query_one("#symbols-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(16)
+                    return
+                len.value = str(max(1, int(len.value) - 1))
+            case "words-pane":
+                len = self.query_one("#words-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(5)
+                    return
+                len.value = str(max(1, int(len.value) - 1))
+        self.action_regenerate_password()
 
     @on(Checkbox.Changed)
     def update_alphabet(self) -> None:
@@ -397,9 +434,7 @@ class NewEntryDialog(ModalScreen):
                     return
                 len = int(len.value)
 
-                self.passfield.value = passutils.get_rand_password(self.alphabet, len)[
-                    0
-                ]
+                self.passfield.value = passutils.get_rand_password(self.alphabet, len)
             case "words-pane":
                 len = self.query_one("#words-len", expect_type=Input)
                 if not len.is_valid:
@@ -407,7 +442,7 @@ class NewEntryDialog(ModalScreen):
 
                 len = int(len.value)
                 separators = self.query_one("#seps", expect_type=Input).value
-                self.passfield.value = passutils.get_rand_passphrase(len, separators)[0]
+                self.passfield.value = passutils.get_rand_passphrase(len, separators)
 
     def action_leave(self):
         self.app.pop_screen()
