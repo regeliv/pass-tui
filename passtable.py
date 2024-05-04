@@ -22,7 +22,7 @@ from textual.widgets.data_table import RowKey
 
 import rapidfuzz
 
-from typing import Iterator, Iterable
+from typing import Iterator, Iterable, Tuple
 from dataclasses import dataclass
 import os
 import string
@@ -403,7 +403,7 @@ class NewEntryDialog(ModalScreen):
         self.app.pop_screen()
 
 
-class MoveDialog(ModalScreen):
+class MoveDialog(ModalScreen[Tuple[bool, bool | None, str | None]]):
     BINDINGS = [
         Binding("escape", "leave", "Leave without saving", key_display="<esc>"),
         Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
@@ -411,23 +411,22 @@ class MoveDialog(ModalScreen):
         Binding("shift+tab", "focus_previous", "Previous"),
     ]
 
-    table: PassTable
+    rows: list[str]
 
     def __init__(
         self,
-        table: PassTable,
+        rows: Iterable[PassRow],
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        self.table = table
-        self.cheatsheet = True
+        self.rows = [str(row) for row in rows]
         super().__init__(name, id, classes)
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
             yield VerticalScroll(
-                *[Static(str(row)) for row in self.table.selected_rows],
+                *[Static(row) for row in self.rows],
                 id="entry-list",
             )
             yield Input(placeholder="destination", id="input")
@@ -450,13 +449,12 @@ class MoveDialog(ModalScreen):
             vs.can_focus = True
 
     def action_leave(self):
-        self.app.pop_screen()
+        self.dismiss((False, None, None))
 
     def action_leave_and_move(self):
         keep_categories = self.query_one(Checkbox).value
         dst = self.query_one(Input).value
-        self.table.move(dst, keep_categories)
-        self.app.pop_screen()
+        self.dismiss((True, keep_categories, dst))
 
 
 @dataclass
@@ -610,8 +608,13 @@ class PassTable(DataTable):
                     title="Password copied!",
                 )
 
-    def action_move_entry(self) -> None:
-        self.app.push_screen(MoveDialog(self))
+    @work
+    async def action_move_entry(self) -> None:
+        move, keep_cats, dst = await self.app.push_screen_wait(MoveDialog(self.selected_rows))
+        if not move:
+            return
+        self.move(dst, keep_cats)
+        # self.app.push_screen(MoveDialog(self))
 
     def action_new_entry(self) -> None:
         self.app.push_screen(NewEntryDialog(self))
