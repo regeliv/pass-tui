@@ -143,22 +143,22 @@ class FindScreen(ModalScreen[str]):
             self.dismiss(option)
 
 
-class DeleteDialog(ModalScreen):
+class DeleteDialog(ModalScreen[bool]):
     BINDINGS = [
         Binding("escape", "leave", "Leave without deleting", key_display="<esc>"),
         Binding("enter", "delete", "Delete", key_display="<cr>"),
     ]
 
-    table: PassTable
+    rows: list[str]
 
     def __init__(
         self,
-        table: PassTable,
+        rows: Iterable[PassRow],
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        self.table = table
+        self.rows = [str(row) for row in rows]
         super().__init__(name, id, classes)
 
     def on_mount(self) -> None:
@@ -167,7 +167,7 @@ class DeleteDialog(ModalScreen):
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
             yield VerticalScroll(
-                *[Static(str(row)) for row in self.table.selected_rows],
+                *[Static(str(row)) for row in self.rows],
                 id="entry-list",
             )
             yield Static(
@@ -176,11 +176,10 @@ class DeleteDialog(ModalScreen):
         yield CheatSheet(self.BINDINGS)
 
     def action_leave(self):
-        self.app.pop_screen()
+        self.dismiss(False)
 
     def action_delete(self):
-        self.table.delete_selected()
-        self.app.pop_screen()
+        self.dismiss(True)
 
 
 class NewEntryDialog(ModalScreen):
@@ -578,9 +577,6 @@ class PassTable(DataTable):
         self.sort_sync_enumerate()
         self.set_interval(5, self.sort_sync_enumerate)
 
-    @work
-    async def action_find(self) -> None:
-        self.app.push_screen(FindScreen(self.all_rows), self.select)
 
     def action_copy_password(self) -> None:
         if self.row_count > 0:
@@ -620,9 +616,16 @@ class PassTable(DataTable):
     def action_new_entry(self) -> None:
         self.app.push_screen(NewEntryDialog(self))
 
-    def action_delete_entry(self) -> None:
+    @work
+    async def action_find(self) -> None:
+        path = await self.app.push_screen_wait(FindScreen(self.all_rows))
+        self.select(path)
+
+    @work
+    async def action_delete_entry(self) -> None:
         if self.row_count > 0:
-            self.app.push_screen(DeleteDialog(self))
+            if await self.app.push_screen_wait(DeleteDialog(self.selected_rows)):
+                self.delete_selected()
 
     def action_edit_entry(self) -> None:
         if self.row_count > 0:
