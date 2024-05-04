@@ -1,18 +1,26 @@
 from __future__ import annotations
 
 from textual.app import App, ComposeResult
-from textual.widgets import Placeholder
+from textual.widget import Widget
+from textual.widgets import Placeholder, Static
 
 from passtable import PassTable
 
 
-class Header(Placeholder):
+class Header(Widget):
     DEFAULT_CSS = """
     Header {
-        height: 1;
+        height: 3;
         dock: top;
     }
+    Static {
+        align: center middle;
+        text-align: center;
+    }
     """
+
+    def compose(self) -> ComposeResult:
+        yield Static("Pass", id="pass")
 
 
 class Pass(App):

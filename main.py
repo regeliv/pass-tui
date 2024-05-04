@@ -2,16 +2,8 @@ import app
 import passutils
 from rich import print
 
-
-def read_config():
-    # finds pass store if it exists
-    # reads config file if it exists
-    print("Reading user config")
-
-
 if __name__ == "__main__":
     if passutils.passstore_exists():
-        read_config()
         pass_app = app.Pass()
         pass_app.run()
     else:
