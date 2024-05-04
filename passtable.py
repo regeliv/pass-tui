@@ -2,7 +2,7 @@ from __future__ import annotations
 from functools import cached_property
 from rich.text import Text
 
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.screen import ModalScreen
@@ -22,7 +22,7 @@ from textual.widgets.data_table import RowKey
 
 import rapidfuzz
 
-from typing import Iterator
+from typing import Iterator, Iterable
 from dataclasses import dataclass
 import os
 import string
@@ -75,7 +75,7 @@ class CheatSheet(Widget):
         yield DataTable()
 
 
-class FindScreen(ModalScreen):
+class FindScreen(ModalScreen[str]):
     BINDINGS = [
         Binding("escape", "leave", "Leave"),
         Binding("down", "down", "Move", priority=True),
@@ -83,16 +83,16 @@ class FindScreen(ModalScreen):
         Binding("enter", "select_and_leave", priority=True),
     ]
 
-    table: PassTable
+    rows: list[str]
 
     def __init__(
         self,
-        table: PassTable,
+        rows: Iterable[PassRow],
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        self.table = table
+        self.rows = [str(row) for row in rows]
         super().__init__(name, id, classes)
 
     @cached_property
@@ -100,8 +100,7 @@ class FindScreen(ModalScreen):
         return self.query_one(OptionList)
 
     def on_mount(self) -> None:
-        for row in self.table.all_rows:
-            self.option_list.add_option(str(row))
+        self.option_list.add_options(self.rows)
         self.option_list.highlighted = 0
         self.option_list.can_focus = False
 
@@ -122,13 +121,12 @@ class FindScreen(ModalScreen):
     @on(Input.Changed)
     def regenerate(self) -> None:
         self.option_list.clear_options()
-        choices = [str(row) for row in self.table.all_rows]
         search_text = self.query_one(Input).value
 
         options = [
             match
             for match, _, _ in rapidfuzz.process.extract(
-                search_text, choices, scorer=rapidfuzz.fuzz.WRatio, limit=None
+                search_text, self.rows, scorer=rapidfuzz.fuzz.WRatio, limit=None
             )
         ]
         self.option_list.add_options(options)
@@ -142,9 +140,7 @@ class FindScreen(ModalScreen):
         # appeasing lsp, will always execute
         if option_idx is not None:
             option = str(self.option_list.get_option_at_index(option_idx).prompt)
-            self.table.select(option)
-
-        self.app.pop_screen()
+            self.dismiss(option)
 
 
 class DeleteDialog(ModalScreen):
@@ -582,8 +578,9 @@ class PassTable(DataTable):
         self.sort_sync_enumerate()
         self.set_interval(5, self.sort_sync_enumerate)
 
-    def action_find(self) -> None:
-        self.app.push_screen(FindScreen(self))
+    @work
+    async def action_find(self) -> None:
+        self.app.push_screen(FindScreen(self.all_rows), self.select)
 
     def action_copy_password(self) -> None:
         if self.row_count > 0:
@@ -706,7 +703,6 @@ class PassTable(DataTable):
     def select(self, pass_str: str) -> None:
         pass_tuple = PassTuple.from_str(pass_str)
         for row in self.all_rows:
-            print(f"comparing {pass_tuple} with {row.pass_tuple}")
             if row.pass_tuple == pass_tuple:
                 print("Matched!")
 
@@ -825,6 +821,7 @@ class PassTable(DataTable):
 
     @property
     def all_rows(self) -> Iterator[PassRow]:
+        # return map(lambda row: PassRow(table=self, key=row.key), self.ordered_rows)
         for row in self.ordered_rows:
             yield PassRow(table=self, key=row.key)
 
