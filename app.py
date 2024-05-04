@@ -3,6 +3,7 @@ from rich.text import Text, TextType
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.message_pump import MessagePump
 from textual.widgets import Input, Placeholder, DataTable, Static, Label, TextArea
 from textual.widgets.data_table import CellType, RowKey
 

@@ -1,31 +1,115 @@
 from __future__ import annotations
+from functools import cache, cached_property
 from rich.text import Text, TextType
 
 from textual import on, widgets
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.containers import Horizontal, Vertical, VerticalScroll, Grid
 from textual.validation import Length, Number
 from textual.widgets import (
-    Button,
-    ContentSwitcher,
     Input,
     DataTable,
-    RadioButton,
-    RadioSet,
+    OptionList,
     Static,
     Label,
     TabbedContent,
 )
-from textual.widgets.data_table import CellType, RowKey
+from textual.widgets.data_table import RowKey
 
-from typing import Iterator, Tuple
+import rapidfuzz
+
+from typing import Iterator
 from dataclasses import dataclass
 import os
 import string
 
 import passutils
 from passutils import PassTuple
+
+
+class FindScreen(ModalScreen):
+    DEFAULT_CSS = """
+        FindScreen {
+            align: center middle;
+        }
+        Vertical {
+            height: 30%;
+        }
+        OptionList {
+            height: 1fr;
+        }
+    """
+
+    BINDINGS = [
+        ("escape", "leave", ""),
+        Binding("down", "down", "", priority=True),
+        Binding("up", "up", "", priority=True),
+        Binding("enter", "select_and_leave", priority=True),
+    ]
+
+    table: PassTable
+
+    def __init__(
+        self,
+        table: PassTable,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+    ) -> None:
+        self.table = table
+        super().__init__(name, id, classes)
+
+    @cached_property
+    def option_list(self) -> OptionList:
+        return self.query_one(OptionList)
+
+    def on_mount(self) -> None:
+        for row in self.table.all_rows:
+            self.option_list.add_option(str(row))
+        self.option_list.highlighted = 0
+
+    def action_down(self) -> None:
+        # appeasing lsp
+        if self.option_list.highlighted is not None:
+            self.option_list.highlighted += 1
+
+    def action_up(self) -> None:
+        if self.option_list.highlighted is not None:
+            self.option_list.highlighted -= 1
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Input()
+            yield OptionList(id="option-list")
+
+    @on(Input.Changed)
+    def regenerate(self) -> None:
+        self.option_list.clear_options()
+        choices = [str(row) for row in self.table.all_rows]
+        search_text = self.query_one(Input).value
+
+        options = [
+            match
+            for match, _, _ in rapidfuzz.process.extract(
+                search_text, choices, scorer=rapidfuzz.fuzz.WRatio, limit=None
+            )
+        ]
+        self.option_list.add_options(options)
+        self.option_list.highlighted = 0
+
+    def action_leave(self) -> None:
+        self.app.pop_screen()
+
+    def action_select_and_leave(self) -> None:
+        option_idx = self.option_list.highlighted
+        if option_idx:
+            option = str(self.option_list.get_option_at_index(option_idx).prompt)
+            self.table.select(option)
+
+        # appeasing lsp, will always execute
+        self.app.pop_screen()
 
 
 class DeleteDialog(ModalScreen):
@@ -546,7 +630,7 @@ class PassTable(DataTable):
         ("r", "reverse_selection", "Reverse selection"),
         ("p", "copy_password", "Copy password"),
         ("u", "copy_username", "Copy username"),
-        ("t", "testing", ""),
+        ("f,/", "find", "Find a password"),
     ]
 
     def sort_sync_enumerate(self) -> None:
@@ -562,6 +646,10 @@ class PassTable(DataTable):
         self.cursor_type = "row"
 
         self.sort_sync_enumerate()
+        self.set_interval(5, self.sort_sync_enumerate)
+
+    def action_find(self) -> None:
+        self.app.push_screen(FindScreen(self))
 
     def action_copy_password(self) -> None:
         if self.row_count > 0:
@@ -667,7 +755,6 @@ class PassTable(DataTable):
 
     def delete_selected(self) -> None:
         # we cannot use the iterator in the for loop directly, because the size changes
-        # TODO: make it do actually delete files
         selected_rows = list(self.selected_rows)
         n_fails = 0
         for row in selected_rows:
@@ -683,7 +770,13 @@ class PassTable(DataTable):
             self.notify("Removal succeeded.", title="Success!")
 
         self.sort_sync_enumerate()
-        # self.update_enumeration()
+
+    def select(self, pass_str: str) -> None:
+        pass_tuple = PassTuple.from_str(pass_str)
+        for row in self.all_rows:
+            if row.pass_tuple == pass_tuple:
+                self.move_cursor(row=self.get_row_index(row.key))
+                return
 
     def update_enumeration(self) -> None:
         for number, row in enumerate(self.ordered_rows, start=1):
