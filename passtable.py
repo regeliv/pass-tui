@@ -22,7 +22,7 @@ from textual.widgets.data_table import RowKey
 
 import rapidfuzz
 
-from typing import Iterator, Iterable, Tuple
+from typing import Iterator, Iterable, NamedTuple, Tuple
 from dataclasses import dataclass
 import os
 import string
@@ -182,7 +182,15 @@ class DeleteDialog(ModalScreen[bool]):
         self.dismiss(True)
 
 
-class NewEntryDialog(ModalScreen):
+class NewEntryTuple(NamedTuple):
+    create: bool
+    prof_cat: str = ""
+    url: str = ""
+    username: str = ""
+    password: str = ""
+
+
+class NewEntryDialog(ModalScreen[NewEntryTuple]):
     BINDINGS = [
         Binding("escape", "leave", "Leave without saving", key_display="<esc>"),
         Binding("tab", "focus_next", "Next", key_display="<tab>"),
@@ -207,17 +215,14 @@ class NewEntryDialog(ModalScreen):
         ),
     ]
 
-    table: PassTable
     alphabet: str
 
     def __init__(
         self,
-        table: PassTable,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        self.table = table
         self.alphabet = string.ascii_letters
         super().__init__(name, id, classes)
 
@@ -367,7 +372,8 @@ class NewEntryDialog(ModalScreen):
                 self.passfield.value = passutils.get_rand_passphrase(len, separators)
 
     def action_leave(self):
-        self.app.pop_screen()
+        self.dismiss(NewEntryTuple(create=False))
+        # self.app.pop_screen()
 
     @on(Input.Submitted, "#profile-category,#username,#url,#password")
     async def action_leave_and_save(self):
@@ -399,11 +405,19 @@ class NewEntryDialog(ModalScreen):
             return
         password = password.value
 
-        self.table.insert(prof_cat, url, username, password)
-        self.app.pop_screen()
+        # self.table.insert(prof_cat, url, username, password)
+        self.dismiss(
+            NewEntryTuple(
+                create=True,
+                prof_cat=prof_cat,
+                url=url,
+                username=username,
+                password=password,
+            )
+        )
 
 
-class MoveDialog(ModalScreen[Tuple[bool, bool | None, str | None]]):
+class MoveDialog(ModalScreen[Tuple[bool, bool, str]]):
     BINDINGS = [
         Binding("escape", "leave", "Leave without saving", key_display="<esc>"),
         Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
@@ -449,7 +463,7 @@ class MoveDialog(ModalScreen[Tuple[bool, bool | None, str | None]]):
             vs.can_focus = True
 
     def action_leave(self):
-        self.dismiss((False, None, None))
+        self.dismiss((False, False, ""))
 
     def action_leave_and_move(self):
         keep_categories = self.query_one(Checkbox).value
@@ -575,7 +589,6 @@ class PassTable(DataTable):
         self.sort_sync_enumerate()
         self.set_interval(5, self.sort_sync_enumerate)
 
-
     def action_copy_password(self) -> None:
         if self.row_count > 0:
             return_code = passutils.passcli_copy(self.current_row.pass_tuple, 1)
@@ -610,14 +623,20 @@ class PassTable(DataTable):
 
     @work
     async def action_move_entry(self) -> None:
-        move, keep_cats, dst = await self.app.push_screen_wait(MoveDialog(self.selected_rows))
+        move, keep_cats, dst = await self.app.push_screen_wait(
+            MoveDialog(self.selected_rows)
+        )
         if not move:
             return
         self.move(dst, keep_cats)
         # self.app.push_screen(MoveDialog(self))
 
-    def action_new_entry(self) -> None:
-        self.app.push_screen(NewEntryDialog(self))
+    @work
+    async def action_new_entry(self) -> None:
+        new_entry = await self.app.push_screen_wait(NewEntryDialog())
+        if new_entry.create:
+            self.insert(new_entry)
+        # self.app.push_screen(NewEntryDialog(self))
 
     @work
     async def action_find(self) -> None:
@@ -761,10 +780,10 @@ class PassTable(DataTable):
 
         self.move_cursor(row=old_cursor + cursor_diff)
 
-    def insert(self, prof_cat: str, url: str, username: str, password: str):
-        pass_tuple = PassTuple.from_str(os.path.join(prof_cat, url))
+    def insert(self, new_entry: NewEntryTuple):
+        pass_tuple = PassTuple.from_str(os.path.join(new_entry.prof_cat, new_entry.url))
 
-        if passutils.passcli_insert(pass_tuple, username, password):
+        if passutils.passcli_insert(pass_tuple, new_entry.username, new_entry.password):
             self.notify(
                 "Password insertion succeeded.",
                 title="Success!",
