@@ -26,6 +26,15 @@ class ValidFilePath(Validator):
             return self.success()
 
 
+class ValidDirPath(Validator):
+
+    def validate(self, value: str) -> ValidationResult:
+        if value.startswith("/"):
+            return self.failure("Path cannot start /")
+        else:
+            return self.success()
+
+
 class RenameDialog(ModalScreen[str | None]):
     BINDINGS = [
         Binding("escape", "exit", "Exit", priority=True, key_display="<esc>"),
@@ -82,9 +91,7 @@ class RenameDialog(ModalScreen[str | None]):
     def action_rename_and_exit(self) -> None:
         user_input = self.query_one(Input)
         if not user_input.is_valid:
-            self.notify(
-                "Destination cannot be empty.", title="Rename fail!", severity="error"
-            )
+            self.notify("Invalid destination.", title="Rename fail!", severity="error")
             return
 
         self.dismiss(self.query_one(Input).value)
@@ -461,7 +468,9 @@ class MoveDialog(ModalScreen[Tuple[bool, bool, str]]):
                 *[Static(row) for row in self.rows],
                 id="entry-list",
             )
-            yield Input(placeholder="destination", id="input")
+            yield Input(
+                placeholder="destination", id="input", validators=[ValidDirPath()]
+            )
             yield Checkbox("Keep categories?", id="checkbox")
 
         yield CheatSheet(self.BINDINGS)
@@ -484,6 +493,10 @@ class MoveDialog(ModalScreen[Tuple[bool, bool, str]]):
         self.dismiss((False, False, ""))
 
     def action_leave_and_move(self):
+        user_input = self.query_one(Input)
+        if not user_input.is_valid:
+            self.notify("Invalid destination.", title="Move failed!", severity="error")
+            return
+        dst = user_input.value
         keep_categories = self.query_one(Checkbox).value
-        dst = self.query_one(Input).value
         self.dismiss((True, keep_categories, dst))
