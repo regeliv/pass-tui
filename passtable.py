@@ -89,7 +89,7 @@ class PassTable(DataTable):
     async def action_rename(self) -> None:
         if self.row_count <= 0:
             self.notify(
-                "No passwords in database..", title="Rename failed!", severity="warning"
+                "No passwords in database.", title="Rename failed!", severity="warning"
             )
             return
 
@@ -116,7 +116,7 @@ class PassTable(DataTable):
     def action_copy_password(self) -> None:
         if self.row_count <= 0:
             self.notify(
-                "No passwords in database..", title="Copy failed!", severity="warning"
+                "No passwords in database.", title="Copy failed!", severity="warning"
             )
             return
 
@@ -137,7 +137,7 @@ class PassTable(DataTable):
     def action_copy_username(self) -> None:
         if self.row_count <= 0:
             self.notify(
-                "No passwords in database..", title="Copy failed!", severity="warning"
+                "No passwords in database.", title="Copy failed!", severity="warning"
             )
             return
 
