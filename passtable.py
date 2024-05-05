@@ -88,6 +88,9 @@ class PassTable(DataTable):
     @work
     async def action_rename(self) -> None:
         if self.row_count <= 0:
+            self.notify(
+                "No passwords in database..", title="Rename failed!", severity="warning"
+            )
             return
 
         pass_tuple = self.current_row.pass_tuple
@@ -112,6 +115,9 @@ class PassTable(DataTable):
 
     def action_copy_password(self) -> None:
         if self.row_count <= 0:
+            self.notify(
+                "No passwords in database..", title="Copy failed!", severity="warning"
+            )
             return
 
         return_code = passutils.passcli_copy(self.current_row.pass_tuple, 1)
@@ -130,6 +136,9 @@ class PassTable(DataTable):
 
     def action_copy_username(self) -> None:
         if self.row_count <= 0:
+            self.notify(
+                "No passwords in database..", title="Copy failed!", severity="warning"
+            )
             return
 
         return_code = passutils.passcli_copy(self.current_row.pass_tuple, 2)
@@ -149,6 +158,11 @@ class PassTable(DataTable):
     @work
     async def action_move_entry(self) -> None:
         if self.row_count <= 0:
+            self.notify(
+                "No passwords selected in database.",
+                title="Move failed!",
+                severity="warning",
+            )
             return
 
         move, keep_cats, dst = await self.app.push_screen_wait(
@@ -167,6 +181,9 @@ class PassTable(DataTable):
     @work
     async def action_find(self) -> None:
         if self.row_count <= 0:
+            self.notify(
+                "No passwords in database.", title="Find failed!", severity="warning"
+            )
             return
 
         path = await self.app.push_screen_wait(FindScreen(self.all_rows))
@@ -175,6 +192,9 @@ class PassTable(DataTable):
     @work
     async def action_delete_entry(self) -> None:
         if self.row_count <= 0:
+            self.notify(
+                "No passwords in database.", title="Delete failed!", severity="warning"
+            )
             return
 
         if await self.app.push_screen_wait(DeleteDialog(self.selected_rows)):
@@ -182,6 +202,9 @@ class PassTable(DataTable):
 
     def action_edit_entry(self) -> None:
         if self.row_count <= 0:
+            self.notify(
+                "No passwords in database.", title="Edit failed!", severity="warning"
+            )
             return
 
         with self.app.suspend():
