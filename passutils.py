@@ -240,6 +240,17 @@ def rm(pass_tuple: PassTuple) -> bool:
         return False
 
 
+def rename(pass_tuple: PassTuple, new_name: str) -> bool:
+    try:
+        old_path = pass_tuple.fs_path
+        new_path = os.path.join(pass_tuple.profile, pass_tuple.cats, new_name + ".gpg")
+        new_path = dst_to_fs_path(new_path)
+        os.renames(old_path, new_path)
+        return True
+    except:
+        return False
+
+
 def passcli_copy(pass_tuple: PassTuple, n: int) -> int:
     # passing env to ensure local shell vars are passed
     # popen allows to easily capture stderr and stdout
