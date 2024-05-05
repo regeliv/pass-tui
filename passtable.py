@@ -16,7 +16,14 @@ from cheatsheet import CheatSheet
 import passutils
 from passutils import PassTuple
 from passrow import PassRow, RowCheckbox
-from screens import DeleteDialog, FindScreen, MoveDialog, NewEntryDialog, NewEntryTuple
+from screens import (
+    DeleteDialog,
+    FindScreen,
+    MoveDialog,
+    NewEntryDialog,
+    NewEntryTuple,
+    RenameDialog,
+)
 
 
 class PassTable(DataTable):
@@ -26,6 +33,7 @@ class PassTable(DataTable):
         Binding("e", "edit_entry", "Edit password"),
         Binding("m", "move_entry", "Move password"),
         Binding("f,/", "find", "Find a password"),
+        Binding("R", "rename", "Rename password"),
         Binding("p", "copy_password", "Copy password"),
         Binding("u", "copy_username", "Copy username"),
         Binding("space", "select_entry", "Select/deselect", key_display="<spc>"),
@@ -76,6 +84,30 @@ class PassTable(DataTable):
         except NoMatches:
             screen = self.app.query_one("#main-screen", expect_type=Vertical)
             screen.mount(CheatSheet(self.BINDINGS))
+
+    @work
+    async def action_rename(self) -> None:
+        if self.row_count <= 0:
+            return
+
+        pass_tuple = self.current_row.pass_tuple
+
+        new_name = await self.app.push_screen_wait(RenameDialog(pass_tuple))
+
+        if new_name is None:
+            return
+
+        if not passutils.rename(pass_tuple, new_name):
+            self.notify(
+                "Failed to rename the password.",
+                title="Renaming fail!",
+                severity="error",
+            )
+            return
+
+        self.notify("Renamed.", title="Success!")
+        self.sort_sync_enumerate()
+        self.select(str(PassTuple(pass_tuple.profile, pass_tuple.cats, new_name)))
 
     def action_copy_password(self) -> None:
         if self.row_count <= 0:

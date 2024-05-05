@@ -34,6 +34,72 @@ Toast.-warning .toast--title {
     color: $error;
 }
 
+Input {
+    border: $border;
+    background: $surface;
+}
+
+Input:focus {
+    border: round $cursor;
+    background: $surface;
+}
+
+Input.-invalid {
+    border: round $error;
+    background: $surface;
+}
+
+Input.-invalid:focus {
+    border: round $error_focus;
+    background: $surface;
+}
+
+Checkbox {
+    background: $surface;
+    border: $no_border;
+}
+
+#dialog {
+    grid-size: 2;
+    grid-gutter: 1 2;
+    grid-rows: 1fr 3;
+    padding: 0 1;
+    width: 60;
+    height: 20; 
+    border: $border;
+    background: $surface;
+}
+
+.datatable--cursor {
+    background: $surface;
+}
+
+.datatable--hover {
+    background: $surface;
+}
+
+.datatable--header {
+    background: $surface;
+}
+
+.datatable--header-cursor {
+    background: $surface;
+}
+
+.datatable--header-hover {
+    background: $surface;
+}
+
+RenameDialog {
+    align: center middle;
+    #dialog {
+        height: auto;
+    }
+    Static {
+        text-align: center;
+    }
+}
+
 FindScreen {
     align: center middle;
 
@@ -41,15 +107,7 @@ FindScreen {
         width: 60;
         height: 20;
     }
-    #input {
-        border: $border;
-        background: $surface;
-    }
 
-    #input:focus {
-        border: round $cursor;
-        background: $surface;
-    }
     #option-list {
         height: 5fr;
         border: $border;
@@ -74,21 +132,9 @@ FindScreen {
             color: $cursor;
         }
     }
-
 }
 DeleteDialog {
     align: center middle;
-
-    #dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 60;
-        height: 20; 
-        border: $border;
-        background: $surface;
-    }
 
     #entry-list {
         column-span: 2;
@@ -97,12 +143,6 @@ DeleteDialog {
         border: $border;
     }
 
-    #confirm {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
     #warning {
         color: $error;
         column-span: 2;
@@ -116,14 +156,7 @@ NewEntryDialog {
     align: center middle;
 
     #dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 60;
         height: 28; 
-        border: $border;
-        background: $surface;
     }
 
     #label {
@@ -133,38 +166,12 @@ NewEntryDialog {
         content-align: center middle;
     }
 
-    .input-box {
-        border: $border;
-        background: $surface;
-    }
-
-    .input-box:focus {
-        border: round $cursor;
-        background: $surface;
-    }
-
-
-    .input-box.-invalid {
-        border: round $error;
-        background: $surface;
-    }
-
-    .input-box.-invalid:focus {
-        border: round $error_focus;
-        background: $surface;
-    }
-
     TabbedContent #--content-tab-symbols-pane {
         color: $accent;
     }
 
     TabbedContent #--content-tab-words-pane {
         color: $accent;
-    }
-
-    Checkbox {
-        background: $surface;
-        border: $no_border;
     }
 
     #password-input {
@@ -186,17 +193,6 @@ NewEntryDialog {
 MoveDialog {
     align: center middle;
 
-    #dialog {
-        grid-size: 2;
-        grid-gutter: 1 2;
-        grid-rows: 1fr 3;
-        padding: 0 1;
-        width: 60;
-        height: 20; 
-        border: $border;
-        background: $surface;
-    }
-
     #entry-list {
         column-span: 2;
         height: 5fr;
@@ -213,29 +209,6 @@ MoveDialog {
     #entry-list:focus {
         border: $focus;
     }
-
-    #input {
-        border: $border;
-        background: $surface;
-    }
-
-    #input:focus {
-        border: $focus;
-    }
-
-    Checkbox {
-        background: $surface;
-        border: $no_border;
-    }
-
-    #confirm {
-        column-span: 2;
-        height: 1fr;
-        width: 1fr;
-        content-align: center middle;
-    }
-
-
 }
 
 CheatSheet {
@@ -246,29 +219,6 @@ CheatSheet {
 
     scrollbar-size-vertical: 0;
     scrollbar-size-horizontal: 0;
-
-
-    .datatable--cursor {
-        background: $surface;
-    }
-
-    .datatable--hover {
-        background: $surface;
-    }
-
-    .datatable--header {
-        background: $surface;
-    }
-
-    .datatable--header-cursor {
-        background: $surface;
-    }
-
-    .datatable--header-hover {
-        background: $surface;
-    }
-
-
 }
 
 PassTable {
@@ -283,25 +233,11 @@ PassTable {
     border: $border;
 
     .datatable--cursor {
-        background: $surface;
         color: $cursor;
-    }
-
-    .datatable--hover {
-        background: $surface;
-    }
-
-    .datatable--header {
-        background: $surface;
     }
 
     .datatable--header-cursor {
-        background: $surface;
         color: $cursor;
-    }
-
-    .datatable--header-hover {
-        background: $surface;
     }
 
 }

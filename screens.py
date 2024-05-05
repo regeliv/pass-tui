@@ -8,11 +8,86 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.validation import Length, Number
+from textual.validation import Length, Number, ValidationResult, Validator
 from textual.widgets import Checkbox, Input, OptionList, Static, TabPane, TabbedContent
 from cheatsheet import CheatSheet
 from passrow import PassRow
+from passutils import PassTuple
 import passutils
+import os
+
+
+class ValidFilePath(Validator):
+
+    def validate(self, value: str) -> ValidationResult:
+        if value.startswith("/") or value.endswith("/"):
+            return self.failure("Path cannot start or end with /")
+        else:
+            return self.success()
+
+
+class RenameDialog(ModalScreen[str | None]):
+    BINDINGS = [
+        Binding("escape", "exit", "Exit", priority=True, key_display="<esc>"),
+        Binding(
+            "enter",
+            "rename_and_exit",
+            "Select and exit",
+            priority=True,
+            key_display="<cr>",
+        ),
+    ]
+
+    password: PassTuple
+    prof_cat: str
+
+    def __init__(
+        self,
+        password: PassTuple,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+    ) -> None:
+        self.password = password
+        self.prof_cat = os.path.join(password.profile, password.cats)
+        if not self.prof_cat.endswith("/") and not len(self.prof_cat) == 0:
+            self.prof_cat += "/"
+
+        super().__init__(name, id, classes)
+
+    def on_mount(self) -> None:
+        self.query_one(Vertical).border_title = "Rename"
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="dialog"):
+            yield Static(str(self.password))
+            yield Static(Text.from_markup("[b]⇣[/]"))
+            yield Static(
+                Text.from_markup(f"{self.prof_cat}[b]{self.password.url}[/]"),
+                id="destination",
+            )
+            # TODO: add validation
+            yield Input(validators=[Length(minimum=1), ValidFilePath()])
+        yield CheatSheet(self.BINDINGS)
+
+    @on(Input.Changed)
+    def update_destination(self) -> None:
+        dst = self.query_one("#destination", expect_type=Static)
+        user_input = self.query_one(Input).value
+        dst.update(f"{self.prof_cat}[b]{user_input}[/]")
+
+    def action_exit(self) -> None:
+        self.dismiss(None)
+
+    def action_rename_and_exit(self) -> None:
+        user_input = self.query_one(Input)
+        if not user_input.is_valid:
+            self.notify(
+                "Destination cannot be empty.", title="Rename fail!", severity="error"
+            )
+            return
+
+        self.dismiss(self.query_one(Input).value)
 
 
 class FindScreen(ModalScreen[str]):
