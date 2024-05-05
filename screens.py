@@ -17,7 +17,7 @@ import passutils
 
 class FindScreen(ModalScreen[str]):
     BINDINGS = [
-        Binding("escape", "leave", "Leave"),
+        Binding("escape", "leave", "Exit dialog"),
         Binding("down", "down", "Move", priority=True),
         Binding("up", "up", "", priority=True),
         Binding("enter", "select_and_leave", priority=True),
@@ -85,7 +85,7 @@ class FindScreen(ModalScreen[str]):
 
 class DeleteDialog(ModalScreen[bool]):
     BINDINGS = [
-        Binding("escape", "leave", "Leave without deleting", key_display="<esc>"),
+        Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
         Binding("enter", "delete", "Delete", key_display="<cr>"),
     ]
 
@@ -132,25 +132,28 @@ class NewEntryTuple(NamedTuple):
 
 class NewEntryDialog(ModalScreen[NewEntryTuple]):
     BINDINGS = [
-        Binding("escape", "leave", "Leave without saving", key_display="<esc>"),
+        Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
+        Binding("enter", "", "Add new password", key_display="<cr>"),
         Binding("tab", "focus_next", "Next", key_display="<tab>"),
         Binding("shift+tab", "focus_previous", "Previous", key_display="shift+<tab>"),
-        Binding("ctrl+s", "reveal_password", "Show/hide password", key_display="^s"),
         Binding(
-            "ctrl+r", "regenerate_password", "Regenerate password", key_display="^r"
+            "ctrl+s", "reveal_password", "Show/hide password", key_display="ctrl+s"
+        ),
+        Binding(
+            "ctrl+r", "regenerate_password", "Regenerate password", key_display="ctrl+r"
         ),
         Binding(
             "ctrl+a",
             "increase_len",
             "Increase password length",
-            key_display="^a",
+            key_display="ctrl+a",
             priority=True,
         ),
         Binding(
             "ctrl+x",
             "decrease_len",
             "Decrease password length",
-            key_display="^x",
+            key_display="ctrl+x",
             priority=True,
         ),
     ]
@@ -359,7 +362,7 @@ class NewEntryDialog(ModalScreen[NewEntryTuple]):
 
 class MoveDialog(ModalScreen[Tuple[bool, bool, str]]):
     BINDINGS = [
-        Binding("escape", "leave", "Leave without saving", key_display="<esc>"),
+        Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
         Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
         Binding("tab", "focus_next", "Next"),
         Binding("shift+tab", "focus_previous", "Previous"),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from textual.app import App, ComposeResult
+from textual.containers import Vertical
 from textual.widget import Widget
 from textual.widgets import Placeholder, Static
 from rich.text import Text
@@ -31,5 +32,6 @@ class Pass(App):
     ]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        yield PassTable(id="passtable")
+        with Vertical(id="main-screen"):
+            yield Header()
+            yield PassTable(id="passtable")

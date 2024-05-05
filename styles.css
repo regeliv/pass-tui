@@ -242,15 +242,11 @@ CheatSheet {
     dock: bottom;
     height: auto;
     border: $border;
-
-    scrollbar-background: $surface;
-    scrollbar-background-hover: $surface;
-    scrollbar-background-active: $surface;
-    scrollbar-color: $surface;
-    scrollbar-color-active: $surface;
-    scrollbar-color-hover: $surface;
-    scrollbar-corner-color: $surface;
     background: $surface;
+
+    scrollbar-size-vertical: 0;
+    scrollbar-size-horizontal: 0;
+
 
     .datatable--cursor {
         background: $surface;
@@ -271,10 +267,11 @@ CheatSheet {
     .datatable--header-hover {
         background: $surface;
     }
+
+
 }
 
 PassTable {
-    
     scrollbar-background: $surface;
     scrollbar-background-hover: $surface;
     scrollbar-background-active: $surface;

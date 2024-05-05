@@ -1,3 +1,6 @@
+from functools import cached_property
+from itertools import zip_longest
+from typing import Iterable
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
@@ -5,7 +8,7 @@ from textual.widget import Widget
 from textual.widgets import DataTable
 
 
-class CheatSheet(Widget):
+class CheatSheet(DataTable):
     bindings: list[BindingType]
 
     def __init__(
@@ -23,27 +26,63 @@ class CheatSheet(Widget):
         )
 
     def on_mount(self):
-        table = self.query_one(DataTable)
-        table.add_columns(Text("Key", justify="right"))
-        table.add_column("Action")
-        table.cursor_type = "row"
-        table.can_focus = False
-        self.border_title = "Cheatsheet"
-        for binding in self.bindings:
-            if type(binding) == Binding:
-                if binding.show:
-                    if binding.key_display:
-                        table.add_row(
-                            Text.from_markup(
-                                f"[b]{binding.key_display}[/]", justify="right"
-                            ),
-                            Text.from_markup(binding.description, justify="left"),
-                        )
-                    else:
-                        table.add_row(
-                            Text.from_markup(f"[b]{binding.key}[/]", justify="right"),
-                            Text.from_markup(binding.description, justify="left"),
-                        )
+        self.add_columns(Text("Key", justify="right"))
+        self.add_column("Action")
+        self.cursor_type = "row"
+        self.can_focus = False
 
-    def compose(self) -> ComposeResult:
-        yield DataTable()
+        self.border_title = "Cheatsheet"
+
+        filtered_binds: list[Binding] = list(filter(lambda b: type(b) == Binding and b.show, self.bindings))  # type: ignore
+
+        l = len(filtered_binds)
+
+        if l < 10:
+            for binding in filtered_binds:
+                self.add_binding(binding)
+        else:
+            self.add_column(Text("Key", justify="right"))
+            self.add_column("Action")
+
+            # ensure the are always more entries on the right
+            split = l // 2 + 1 if l % 2 == 1 else l // 2
+
+            for b1, b2 in zip_longest(
+                filtered_binds[:split],
+                filtered_binds[split:],
+                fillvalue=None,
+            ):
+                self.add_binding_pair(b1, b2)  # type: ignore
+
+    def add_binding(self, b: Binding) -> None:
+        display = b.key
+        if b.key_display:
+            display = b.key_display
+
+        self.add_row(
+            Text.from_markup(f"[b]{display}[/]", justify="right"),
+            Text.from_markup(b.description, justify="left"),
+        )
+
+    def add_binding_pair(self, b1: Binding | None, b2: Binding | None):
+        print(f"**************** {b1} {b2}")
+        if b1:
+            display1 = b1.key_display if b1.key_display else b1.key
+            desc1 = b1.description
+        else:
+            display1 = ""
+            desc1 = ""
+
+        if b2:
+            display2 = b2.key_display if b2.key_display else b2.key
+            desc2 = b2.description
+        else:
+            display2 = ""
+            desc2 = ""
+
+        self.add_row(
+            Text.from_markup(f"[b]{display1}[/]", justify="right"),
+            Text.from_markup(desc1, justify="left"),
+            Text.from_markup(f"[b]{display2}[/]", justify="right"),
+            Text.from_markup(desc2, justify="left"),
+        )

@@ -3,6 +3,8 @@ from rich.text import Text
 
 from textual import work
 from textual.binding import Binding
+from textual.containers import Vertical
+from textual.css.query import NoMatches
 from textual.widgets import (
     DataTable,
 )
@@ -10,6 +12,7 @@ from textual.widgets import (
 from typing import Iterator
 import os
 
+from cheatsheet import CheatSheet
 import passutils
 from passutils import PassTuple
 from passrow import PassRow, RowCheckbox
@@ -18,21 +21,24 @@ from screens import DeleteDialog, FindScreen, MoveDialog, NewEntryDialog, NewEnt
 
 class PassTable(DataTable):
     BINDINGS = [
-        Binding("shift+up", "select_up", "Select many entries"),
-        Binding("shift+down", "select_down", "Select many entries"),
-        Binding("ctrl+up", "deselect_up", "Select many entries"),
-        Binding("ctrl+down", "deselect_down", "Select many entries"),
-        Binding("escape", "deselect_all", "Remove selection"),
-        Binding("space", "select_entry", "Select/deselect"),
-        Binding("a", "select_all", "Select all entries"),
-        Binding("d", "delete_entry", "Delete"),
-        Binding("e", "edit_entry", "Delete"),
-        Binding("n", "new_entry", "Add new entry"),
-        Binding("m", "move_entry", "Move entry"),
-        Binding("r", "reverse_selection", "Reverse selection"),
+        Binding("n", "new_entry", "Add new password"),
+        Binding("d", "delete_entry", "Delete password"),
+        Binding("e", "edit_entry", "Edit password"),
+        Binding("m", "move_entry", "Move password"),
+        Binding("f,/", "find", "Find a password"),
         Binding("p", "copy_password", "Copy password"),
         Binding("u", "copy_username", "Copy username"),
-        Binding("f,/", "find", "Find a password"),
+        Binding("space", "select_entry", "Select/deselect", key_display="<spc>"),
+        Binding("shift+up", "select_up", "Select many up", key_display="shift+↑"),
+        Binding("shift+down", "select_down", "Select many down", key_display="shift+↓"),
+        Binding("ctrl+up", "deselect_up", "Deselect many up", key_display="ctrl+↑"),
+        Binding(
+            "ctrl+down", "deselect_down", "Deselect many down", key_display="ctrl+↓"
+        ),
+        Binding("escape", "escape", "Deselect all", key_display="<esc>"),
+        Binding("a", "select_all", "Select all entries"),
+        Binding("r", "reverse_selection", "Reverse selection"),
+        Binding("h", "toggle_help", "Toggle help", priority=True),
     ]
 
     def sort_sync_enumerate(self) -> None:
@@ -42,83 +48,113 @@ class PassTable(DataTable):
 
     def on_mount(self) -> None:
         self.border_title = Text.from_markup("[b][N]ew | [D]elete | [E]dit[/]")
-        self.border_subtitle = Text.from_markup("[b][M]ove | [F]ind")
+        self.border_subtitle = Text.from_markup(
+            "[b][M]ove | [F]ind | [H]elp | [Q]uit[/]"
+        )
+
         self.add_column("", key="checkbox")
         self.add_column("Profile", key="Profile")
         self.add_column("Category", key="Category")
         self.add_column("URL", key="URL")
+
         self.cursor_type = "row"
 
         self.sort_sync_enumerate()
         self.set_interval(5, self.sort_sync_enumerate)
 
+    def action_escape(self) -> None:
+        try:
+            cheatsheet = self.app.query_one(CheatSheet)
+            cheatsheet.remove()
+        except NoMatches:
+            self.deselect_all()
+
+    def action_toggle_help(self) -> None:
+        try:
+            cheatsheet = self.app.query_one(CheatSheet)
+            cheatsheet.remove()
+        except NoMatches:
+            screen = self.app.query_one("#main-screen", expect_type=Vertical)
+            screen.mount(CheatSheet(self.BINDINGS))
+
     def action_copy_password(self) -> None:
-        if self.row_count > 0:
-            return_code = passutils.passcli_copy(self.current_row.pass_tuple, 1)
+        if self.row_count <= 0:
+            return
 
-            self.app.clear_notifications()
+        return_code = passutils.passcli_copy(self.current_row.pass_tuple, 1)
 
-            if return_code != 0:
-                self.notify("Ensure the password field exists.", title="Copy failed!")
-            else:
-                self.notify(
-                    f"Password will be cleared in {passutils.get_password_clear_time()} seconds.",
-                    title="Password copied!",
-                )
+        if return_code != 0:
+            self.notify(
+                "Ensure the password field exists.",
+                title="Copy failed!",
+                severity="error",
+            )
+        else:
+            self.notify(
+                f"Password will be cleared in {passutils.get_password_clear_time()} seconds.",
+                title="Password copied!",
+            )
 
     def action_copy_username(self) -> None:
-        if self.row_count > 0:
-            return_code = passutils.passcli_copy(self.current_row.pass_tuple, 2)
+        if self.row_count <= 0:
+            return
 
-            self.app.clear_notifications()
+        return_code = passutils.passcli_copy(self.current_row.pass_tuple, 2)
 
-            if return_code != 0:
-                self.notify(
-                    "Ensure the user field exists.",
-                    title="Copy failed!",
-                    severity="error",
-                )
-            else:
-                self.notify(
-                    f"Username will be cleared in {passutils.get_password_clear_time()} seconds.",
-                    title="Password copied!",
-                )
+        if return_code != 0:
+            self.notify(
+                "Ensure the username field exists.",
+                title="Copy failed!",
+                severity="error",
+            )
+        else:
+            self.notify(
+                f"Username will be cleared in {passutils.get_password_clear_time()} seconds.",
+                title="Username copied!",
+            )
 
     @work
     async def action_move_entry(self) -> None:
+        if self.row_count <= 0:
+            return
+
         move, keep_cats, dst = await self.app.push_screen_wait(
             MoveDialog(self.selected_rows)
         )
         if not move:
             return
         self.move(dst, keep_cats)
-        # self.app.push_screen(MoveDialog(self))
 
     @work
     async def action_new_entry(self) -> None:
         new_entry = await self.app.push_screen_wait(NewEntryDialog())
         if new_entry.create:
             self.insert(new_entry)
-        # self.app.push_screen(NewEntryDialog(self))
 
     @work
     async def action_find(self) -> None:
-        if self.row_count > 0:
-            path = await self.app.push_screen_wait(FindScreen(self.all_rows))
-            self.select(path)
+        if self.row_count <= 0:
+            return
+
+        path = await self.app.push_screen_wait(FindScreen(self.all_rows))
+        self.select(path)
 
     @work
     async def action_delete_entry(self) -> None:
-        if self.row_count > 0:
-            if await self.app.push_screen_wait(DeleteDialog(self.selected_rows)):
-                self.delete_selected()
+        if self.row_count <= 0:
+            return
+
+        if await self.app.push_screen_wait(DeleteDialog(self.selected_rows)):
+            self.delete_selected()
 
     def action_edit_entry(self) -> None:
-        if self.row_count > 0:
-            with self.app.suspend():
-                passutils.passcli_edit(self.current_row.pass_tuple)
+        if self.row_count <= 0:
+            return
 
-    def action_deselect_all(self) -> None:
+        with self.app.suspend():
+            passutils.passcli_edit(self.current_row.pass_tuple)
+
+    def deselect_all(self) -> None:
         for row in self.all_rows:
             row.deselect()
 
@@ -137,41 +173,50 @@ class PassTable(DataTable):
         self.force_refresh()
 
     def action_select_up(self) -> None:
-        if self.row_count > 0:
-            self.current_row.select()
-            super().action_cursor_up()
-            self.current_row.select()
+        if self.row_count <= 0:
+            return
 
-            self.force_refresh()
+        self.current_row.select()
+        super().action_cursor_up()
+        self.current_row.select()
+
+        self.force_refresh()
 
     def action_select_down(self) -> None:
-        if self.row_count > 0:
-            self.current_row.select()
-            super().action_cursor_down()
-            self.current_row.select()
+        if self.row_count <= 0:
+            return
 
-            self.force_refresh()
+        self.current_row.select()
+        super().action_cursor_down()
+        self.current_row.select()
+
+        self.force_refresh()
 
     def action_deselect_up(self) -> None:
-        if self.row_count > 0:
-            self.current_row.deselect()
-            super().action_cursor_up()
-            self.current_row.deselect()
+        if self.row_count <= 0:
+            return
 
-            self.force_refresh()
+        self.current_row.deselect()
+        super().action_cursor_up()
+        self.current_row.deselect()
+
+        self.force_refresh()
 
     def action_deselect_down(self) -> None:
-        if self.row_count > 0:
-            self.current_row.deselect()
-            super().action_cursor_down()
-            self.current_row.deselect()
+        if self.row_count <= 0:
+            return
+        self.current_row.deselect()
+        super().action_cursor_down()
+        self.current_row.deselect()
 
-            self.force_refresh()
+        self.force_refresh()
 
     def action_select_entry(self) -> None:
-        if self.row_count > 0:
-            self.current_row.toggle()
-            self.force_refresh()
+        if self.row_count <= 0:
+            return
+
+        self.current_row.toggle()
+        self.force_refresh()
 
     def delete_selected(self) -> None:
         selected_rows = list(self.selected_rows)
@@ -272,6 +317,8 @@ class PassTable(DataTable):
             return
 
         n_fails = 0
+
+        # code repetition to avoid ckecking keep_cats in each iteration
         if keep_cats:
             for row in change_list_rows:
                 _, cats, url = row.pass_tuple
@@ -310,9 +357,7 @@ class PassTable(DataTable):
 
     @property
     def all_rows(self) -> Iterator[PassRow]:
-        # return map(lambda row: PassRow(table=self, key=row.key), self.ordered_rows)
-        for row in self.ordered_rows:
-            yield PassRow(table=self, key=row.key)
+        return map(lambda row: PassRow(table=self, key=row.key), self.ordered_rows)
 
     @property
     def selected_rows(self) -> Iterator[PassRow]:
