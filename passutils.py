@@ -1,11 +1,10 @@
 from __future__ import annotations
-import math
 import os
 import secrets
 import shutil
 import subprocess
 from functools import cache
-from typing import Tuple, Iterable, NamedTuple
+from typing import Iterable, NamedTuple
 
 
 class PassTuple(NamedTuple):
@@ -238,6 +237,16 @@ def rm(pass_tuple: PassTuple) -> bool:
         return True
     except:
         return False
+
+
+def prune() -> None:
+    for root, dirs, files in os.walk(get_passstore_path(), topdown=False):
+        if not is_hidden(root) and os.path.isdir(root) and not os.listdir(root):
+            print(root)
+            try:
+                os.rmdir(root)
+            except:
+                pass
 
 
 def rename(pass_tuple: PassTuple, new_name: str) -> bool:

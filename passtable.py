@@ -100,12 +100,13 @@ class PassTable(DataTable):
         if not passutils.rename(pass_tuple, new_name):
             self.notify(
                 "Failed to rename the password.",
-                title="Renaming fail!",
+                title="Renaming failed!",
                 severity="error",
             )
             return
 
-        self.notify("Renamed.", title="Success!")
+        self.notify("Rename succeeded.", title="Success!")
+        passutils.prune()
         self.sort_sync_enumerate()
         self.select(str(PassTuple(pass_tuple.profile, pass_tuple.cats, new_name)))
 
@@ -264,6 +265,7 @@ class PassTable(DataTable):
         else:
             self.notify("Removal succeeded.", title="Success!")
 
+        passutils.prune()
         self.sort_sync_enumerate()
 
     def select(self, pass_str: str) -> None:
@@ -380,6 +382,7 @@ class PassTable(DataTable):
                 severity="warning",
             )
 
+        passutils.prune()
         self.sort_sync_enumerate()
 
     @property
