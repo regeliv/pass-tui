@@ -115,8 +115,6 @@ FindScreen {
         scrollbar-color: $accent;
         scrollbar-color-hover: $cursor;
         scrollbar-color-active: $cursor;
-        scrollbar-background: $surface;
-        scrollbar-background-hover: $surface;
         .option-list--option-highlighted {
             color: $cursor;
             background: $surface;
@@ -137,6 +135,9 @@ DeleteDialog {
     align: center middle;
 
     #entry-list {
+        scrollbar-color: $accent;
+        scrollbar-color-hover: $cursor;
+        scrollbar-color-active: $cursor;
         column-span: 2;
         height: 5fr;
         width: 1fr;
@@ -202,8 +203,6 @@ MoveDialog {
         scrollbar-color: $accent;
         scrollbar-color-hover: $cursor;
         scrollbar-color-active: $cursor;
-        scrollbar-background: $surface;
-        scrollbar-background-hover: $surface;
     }
 
     #entry-list:focus {
@@ -221,7 +220,7 @@ CheatSheet {
     scrollbar-size-horizontal: 0;
 }
 
-PassTable {
+PassApp {
     scrollbar-background: $surface;
     scrollbar-background-hover: $surface;
     scrollbar-background-active: $surface;
@@ -229,6 +228,10 @@ PassTable {
     scrollbar-color-active: $surface;
     scrollbar-color-hover: $surface;
     scrollbar-corner-color: $surface;
+
+}
+
+PassTable {
     height: 100%;
     border: $border;
 
