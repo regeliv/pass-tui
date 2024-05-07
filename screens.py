@@ -21,7 +21,7 @@ class ValidFilePath(Validator):
 
     def validate(self, value: str) -> ValidationResult:
         if value.startswith("/") or value.endswith("/"):
-            return self.failure("Path cannot start or end with /")
+            return self.failure("Path cannot start or end with a /")
         else:
             return self.success()
 
@@ -30,7 +30,15 @@ class ValidDirPath(Validator):
 
     def validate(self, value: str) -> ValidationResult:
         if value.startswith("/"):
-            return self.failure("Path cannot start /")
+            return self.failure("Path cannot start with a /")
+        else:
+            return self.success()
+
+
+class ValidURL(Validator):
+    def validate(self, value: str) -> ValidationResult:
+        if "/" in value:
+            return self.failure("URL cannot contain a /")
         else:
             return self.success()
 
@@ -273,7 +281,11 @@ class NewEntryDialog(ModalScreen[NewEntryTuple]):
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
             yield Input(id="profile-category", classes="input-box")
-            yield Input(id="url", classes="input-box", validators=[Length(minimum=1)])
+            yield Input(
+                id="url",
+                classes="input-box",
+                validators=[Length(minimum=1), ValidURL()],
+            )
             yield Input(id="username", classes="input-box")
             yield Input(
                 id="password",
@@ -411,7 +423,7 @@ class NewEntryDialog(ModalScreen[NewEntryTuple]):
 
         if not url.is_valid:
             self.notify(
-                "The URL field cannot be empty",
+                "The URL cannot be empty or contain a /",
                 title="Insertion failed",
                 severity="error",
             )

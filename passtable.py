@@ -36,12 +36,24 @@ class PassTable(DataTable):
         Binding("R", "rename", "Rename password"),
         Binding("p", "copy_password", "Copy password"),
         Binding("u", "copy_username", "Copy username"),
+        Binding("k", "cursor_up", "Move up", show=False),
+        Binding("j", "cursor_down", "Move down", show=False),
         Binding("space", "select_entry", "Select/deselect", key_display="<spc>"),
-        Binding("shift+up", "select_up", "Select many up", key_display="shift+↑"),
-        Binding("shift+down", "select_down", "Select many down", key_display="shift+↓"),
-        Binding("ctrl+up", "deselect_up", "Deselect many up", key_display="ctrl+↑"),
+        Binding("shift+up,K", "select_up", "Select many up", key_display="shift+↑"),
         Binding(
-            "ctrl+down", "deselect_down", "Deselect many down", key_display="ctrl+↓"
+            "shift+down,J",
+            "select_down",
+            "Select many down",
+            key_display="shift+↓",
+        ),
+        Binding(
+            "ctrl+up,ctrl+k", "deselect_up", "Deselect many up", key_display="ctrl+↑"
+        ),
+        Binding(
+            "ctrl+down,ctrl+j",
+            "deselect_down",
+            "Deselect many down",
+            key_display="ctrl+↓",
         ),
         Binding("escape", "escape", "Deselect all", key_display="<esc>"),
         Binding("a", "select_all", "Select all entries"),
