@@ -156,6 +156,9 @@ class FindScreen(ModalScreen[str]):
         self.option_list.can_focus = False
 
     def action_down(self) -> None:
+        # We cannot use action_scroll_up here because, we use highlight
+        # not selection as the option list is not focusable
+
         # appeasing lsp
         if self.option_list.highlighted is not None:
             self.option_list.highlighted += 1
@@ -479,6 +482,8 @@ class MoveDialog(ModalWithCheat[Tuple[bool, bool, str]]):
         Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
         Binding("tab", "focus_next", "Next"),
         Binding("shift+tab", "focus_previous", "Previous"),
+        Binding("up", "up", "Scroll up", key_display="<arrow>"),
+        Binding("down", "down", "Scroll down", key_display="<arrow>"),
     ] + ModalWithCheat.BINDINGS
 
     rows: list[str]
@@ -513,12 +518,13 @@ class MoveDialog(ModalWithCheat[Tuple[bool, bool, str]]):
         vs = self.query_one(VerticalScroll)
         vs.can_focus = False
 
-        self.watch(vs, "show_vertical_scrollbar", self.on_scrollbar)
+    def action_up(self) -> None:
+        vs = self.query_one(VerticalScroll)
+        vs.action_scroll_up()
 
-    def on_scrollbar(self, old_val: bool, new_val: bool) -> None:
-        if new_val:
-            vs = self.query_one(VerticalScroll)
-            vs.can_focus = True
+    def action_down(self) -> None:
+        vs = self.query_one(VerticalScroll)
+        vs.action_scroll_down()
 
     def action_leave(self):
         self.dismiss((False, False, ""))
