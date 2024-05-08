@@ -104,7 +104,6 @@ class RenameDialog(ModalWithCheat[str | None]):
                 Text.from_markup(f"{self.prof_cat}[b]{self.password.url}[/]"),
                 id="destination",
             )
-            # TODO: add validation
             yield Input(validators=[Length(minimum=1), ValidFilePath()])
         yield CheatSheet(self.BINDINGS)
 
@@ -201,6 +200,8 @@ class DeleteDialog(ModalWithCheat[bool]):
     BINDINGS = [
         Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
         Binding("enter", "delete", "Delete", key_display="<cr>"),
+        Binding("up", "", "Scroll up", key_display="↑"),
+        Binding("down", "", "Scroll down", key_display="↓"),
     ] + ModalWithCheat.BINDINGS
 
     rows: list[str]
@@ -247,7 +248,13 @@ class NewEntryTuple(NamedTuple):
 class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
     BINDINGS = [
         Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
-        Binding("enter", "", "Add new password", key_display="<cr>"),
+        Binding(
+            "enter",
+            "submit_input",
+            "Add new password",
+            key_display="<cr>",
+            priority=True,
+        ),
         Binding("tab", "focus_next", "Next", key_display="<tab>"),
         Binding("shift+tab", "focus_previous", "Previous", key_display="shift+<tab>"),
         Binding(
@@ -270,6 +277,7 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
             key_display="ctrl+x",
             priority=True,
         ),
+        Binding("ctrl+p", "change_tab", "Change password tab"),
     ] + ModalWithCheat.BINDINGS
 
     alphabet: str
@@ -410,8 +418,28 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
     def action_reveal_password(self) -> None:
         self.passfield.password = not self.passfield.password
 
-    @on(Input.Submitted, "#words-len,#symbols-len")
-    @on(Input.Changed, "#seps")
+    def action_submit_input(self) -> None:
+        if self.focused is None:
+            self.action_leave_and_save()
+            return
+
+        self.notify(f"{self.focused.id}")
+
+        match self.focused.id:
+            case "words-len" | "symbols-len" | "seps":
+                self.action_regenerate_password()
+            case _:
+                self.action_leave_and_save()
+
+    def action_change_tab(self) -> None:
+        tc = self.query_one(TabbedContent)
+        choice = self.chosen_mode
+        match choice:
+            case "symbols-pane":
+                tc.active = "words-pane"
+            case "words-pane":
+                tc.active = "symbols-pane"
+
     @on(TabbedContent.TabActivated)
     def action_regenerate_password(self) -> None:
         choice = self.chosen_mode
@@ -435,8 +463,7 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
     def action_leave(self):
         self.dismiss(NewEntryTuple(create=False))
 
-    @on(Input.Submitted, "#profile-category,#username,#url,#password")
-    async def action_leave_and_save(self):
+    def action_leave_and_save(self):
         prof_cat = self.query_one("#profile-category", expect_type=Input).value
         username = self.query_one("#username", expect_type=Input).value
 
@@ -482,8 +509,8 @@ class MoveDialog(ModalWithCheat[Tuple[bool, bool, str]]):
         Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
         Binding("tab", "focus_next", "Next"),
         Binding("shift+tab", "focus_previous", "Previous"),
-        Binding("up", "up", "Scroll up", key_display="<arrow>"),
-        Binding("down", "down", "Scroll down", key_display="<arrow>"),
+        Binding("up", "up", "Scroll up", key_display="↑"),
+        Binding("down", "down", "Scroll down", key_display="↓"),
     ] + ModalWithCheat.BINDINGS
 
     rows: list[str]

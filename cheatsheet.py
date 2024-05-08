@@ -1,11 +1,9 @@
-from functools import cached_property
-from itertools import zip_longest
-from typing import Iterable
+from typing import Tuple
 from rich.text import Text
-from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.widget import Widget
 from textual.widgets import DataTable
+import math
 
 
 class CheatSheet(DataTable):
@@ -26,63 +24,51 @@ class CheatSheet(DataTable):
         )
 
     def on_mount(self):
-        self.add_columns(Text("Key", justify="right"))
-        self.add_column("Action")
         self.cursor_type = "row"
         self.can_focus = False
 
         self.border_title = "Cheatsheet"
 
+        self.add_bindings()
+        return
+
+    @staticmethod
+    def bind_to_pair(b: Binding) -> Tuple[Text, Text]:
+        key_str = b.key_display if b.key_display else b.key
+        return (
+            Text.from_markup(f"[b]{key_str}[/]", justify="right"),
+            Text.from_markup(f"{b.description}", justify="left"),
+        )
+
+    def add_bindings(self) -> None:
         filtered_binds: list[Binding] = list(filter(lambda b: type(b) == Binding and b.show, self.bindings))  # type: ignore
 
         l = len(filtered_binds)
+        lists_of_binds = []
 
-        if l < 10:
-            for binding in filtered_binds:
-                self.add_binding(binding)
-        else:
+        rows = 5
+
+        cols = math.ceil(l / rows)
+        print(f"{l} {cols}")
+        for _ in range(cols):
             self.add_column(Text("Key", justify="right"))
             self.add_column("Action")
 
-            # ensure the are always more entries on the right
-            split = l // 2 + 1 if l % 2 == 1 else l // 2
+        full_rows = l % rows
+        if full_rows == 0:
+            full_rows = rows
 
-            for b1, b2 in zip_longest(
-                filtered_binds[:split],
-                filtered_binds[split:],
-                fillvalue=None,
-            ):
-                self.add_binding_pair(b1, b2)  # type: ignore
+        idx = 0
+        for i in range(full_rows):
+            lists_of_binds.append(filtered_binds[idx : idx + cols])
+            idx += cols
+        for i in range(full_rows, rows):
+            lists_of_binds.append(filtered_binds[idx : idx + cols - 1])
+            idx += cols - 1
 
-    def add_binding(self, b: Binding) -> None:
-        display = b.key
-        if b.key_display:
-            display = b.key_display
-
-        self.add_row(
-            Text.from_markup(f"[b]{display}[/]", justify="right"),
-            Text.from_markup(b.description, justify="left"),
-        )
-
-    def add_binding_pair(self, b1: Binding | None, b2: Binding | None):
-        print(f"**************** {b1} {b2}")
-        if b1:
-            display1 = b1.key_display if b1.key_display else b1.key
-            desc1 = b1.description
-        else:
-            display1 = ""
-            desc1 = ""
-
-        if b2:
-            display2 = b2.key_display if b2.key_display else b2.key
-            desc2 = b2.description
-        else:
-            display2 = ""
-            desc2 = ""
-
-        self.add_row(
-            Text.from_markup(f"[b]{display1}[/]", justify="right"),
-            Text.from_markup(desc1, justify="left"),
-            Text.from_markup(f"[b]{display2}[/]", justify="right"),
-            Text.from_markup(desc2, justify="left"),
-        )
+        for binding_group in lists_of_binds:
+            pairs = map(
+                CheatSheet.bind_to_pair,
+                binding_group,
+            )
+            self.add_row(*[item for pair in pairs for item in pair])
