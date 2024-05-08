@@ -7,7 +7,8 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Grid, Vertical, VerticalScroll
-from textual.screen import ModalScreen
+from textual.css.query import NoMatches
+from textual.screen import ModalScreen, ScreenResultType
 from textual.validation import Length, Number, ValidationResult, Validator
 from textual.widgets import Checkbox, Input, OptionList, Static, TabPane, TabbedContent
 from cheatsheet import CheatSheet
@@ -15,6 +16,26 @@ from passrow import PassRow
 from passutils import PassTuple
 import passutils
 import os
+
+
+class ModalWithCheat(ModalScreen[ScreenResultType]):
+    BINDINGS = [
+        Binding("ctrl+t", "toggle_help", "Toggle help", priority=True),
+    ]
+
+    def action_toggle_help(self):
+        try:
+            cheatsheet = self.query_one(CheatSheet)
+            cheatsheet.remove()
+        except NoMatches:
+            self.mount(CheatSheet(self.BINDINGS))
+
+
+class VimVerticalScroll(VerticalScroll):
+    BINDINGS = [
+        Binding("j", "scroll_down", "Scroll one line down"),
+        Binding("k", "scroll_up", "Scroll one line up"),
+    ]
 
 
 class ValidFilePath(Validator):
@@ -43,8 +64,8 @@ class ValidURL(Validator):
             return self.success()
 
 
-class RenameDialog(ModalScreen[str | None]):
-    BINDINGS = [
+class RenameDialog(ModalWithCheat[str | None]):
+    BINDINGS = ModalWithCheat.BINDINGS + [
         Binding("escape", "exit", "Exit", priority=True, key_display="<esc>"),
         Binding(
             "enter",
@@ -173,11 +194,11 @@ class FindScreen(ModalScreen[str]):
             self.dismiss(option)
 
 
-class DeleteDialog(ModalScreen[bool]):
+class DeleteDialog(ModalWithCheat[bool]):
     BINDINGS = [
         Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
         Binding("enter", "delete", "Delete", key_display="<cr>"),
-    ]
+    ] + ModalWithCheat.BINDINGS
 
     rows: list[str]
 
@@ -196,7 +217,7 @@ class DeleteDialog(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
-            yield VerticalScroll(
+            yield VimVerticalScroll(
                 *[Static(str(row)) for row in self.rows],
                 id="entry-list",
             )
@@ -220,7 +241,7 @@ class NewEntryTuple(NamedTuple):
     password: str = ""
 
 
-class NewEntryDialog(ModalScreen[NewEntryTuple]):
+class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
     BINDINGS = [
         Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
         Binding("enter", "", "Add new password", key_display="<cr>"),
@@ -246,7 +267,7 @@ class NewEntryDialog(ModalScreen[NewEntryTuple]):
             key_display="ctrl+x",
             priority=True,
         ),
-    ]
+    ] + ModalWithCheat.BINDINGS
 
     alphabet: str
 
@@ -410,7 +431,6 @@ class NewEntryDialog(ModalScreen[NewEntryTuple]):
 
     def action_leave(self):
         self.dismiss(NewEntryTuple(create=False))
-        # self.app.pop_screen()
 
     @on(Input.Submitted, "#profile-category,#username,#url,#password")
     async def action_leave_and_save(self):
@@ -442,7 +462,6 @@ class NewEntryDialog(ModalScreen[NewEntryTuple]):
             return
         password = password.value
 
-        # self.table.insert(prof_cat, url, username, password)
         self.dismiss(
             NewEntryTuple(
                 create=True,
@@ -454,13 +473,13 @@ class NewEntryDialog(ModalScreen[NewEntryTuple]):
         )
 
 
-class MoveDialog(ModalScreen[Tuple[bool, bool, str]]):
+class MoveDialog(ModalWithCheat[Tuple[bool, bool, str]]):
     BINDINGS = [
         Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
         Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
         Binding("tab", "focus_next", "Next"),
         Binding("shift+tab", "focus_previous", "Previous"),
-    ]
+    ] + ModalWithCheat.BINDINGS
 
     rows: list[str]
 
@@ -476,10 +495,10 @@ class MoveDialog(ModalScreen[Tuple[bool, bool, str]]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
-            yield VerticalScroll(
-                *[Static(row) for row in self.rows],
-                id="entry-list",
-            )
+            with VimVerticalScroll(id="entry-list"):
+                for row in self.rows:
+                    yield Static(row)
+
             yield Input(
                 placeholder="destination", id="input", validators=[ValidDirPath()]
             )
