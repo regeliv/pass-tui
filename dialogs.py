@@ -9,13 +9,14 @@ from textual.binding import Binding
 from textual.containers import Grid, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen, ScreenResultType
-from textual.validation import Length, Number, ValidationResult, Validator
+from textual.validation import Length, Number
 from textual.widgets import Checkbox, Input, OptionList, Static, TabPane, TabbedContent
 from cheatsheet import CheatSheet
 from passrow import PassRow
 from passutils import PassTuple
 import passutils
 import os
+from validators import *
 
 
 class ModalWithCheat(ModalScreen[ScreenResultType]):
@@ -36,32 +37,6 @@ class VimVerticalScroll(VerticalScroll):
         Binding("j", "scroll_down", "Scroll one line down"),
         Binding("k", "scroll_up", "Scroll one line up"),
     ]
-
-
-class ValidFilePath(Validator):
-
-    def validate(self, value: str) -> ValidationResult:
-        if value.startswith("/") or value.endswith("/"):
-            return self.failure("Path cannot start or end with a /")
-        else:
-            return self.success()
-
-
-class ValidDirPath(Validator):
-
-    def validate(self, value: str) -> ValidationResult:
-        if value.startswith("/"):
-            return self.failure("Path cannot start with a /")
-        else:
-            return self.success()
-
-
-class ValidURL(Validator):
-    def validate(self, value: str) -> ValidationResult:
-        if "/" in value:
-            return self.failure("URL cannot contain a /")
-        else:
-            return self.success()
 
 
 class RenameDialog(ModalWithCheat[str | None]):
@@ -154,18 +129,6 @@ class FindScreen(ModalScreen[str]):
         self.option_list.highlighted = 0
         self.option_list.can_focus = False
 
-    def action_down(self) -> None:
-        # We cannot use action_scroll_up here because, we use highlight
-        # not selection as the option list is not focusable
-
-        # appeasing lsp
-        if self.option_list.highlighted is not None:
-            self.option_list.highlighted += 1
-
-    def action_up(self) -> None:
-        if self.option_list.highlighted is not None:
-            self.option_list.highlighted -= 1
-
     def compose(self) -> ComposeResult:
         with Vertical(id="vertical"):
             yield Input(id="input")
@@ -194,6 +157,17 @@ class FindScreen(ModalScreen[str]):
         if option_idx is not None:
             option = str(self.option_list.get_option_at_index(option_idx).prompt)
             self.dismiss(option)
+
+    def action_down(self) -> None:
+        # We cannot use action_scroll_up here because, we use highlight
+        # not selection as the option list is not focusable
+
+        if self.option_list.highlighted is not None:
+            self.option_list.highlighted += 1
+
+    def action_up(self) -> None:
+        if self.option_list.highlighted is not None:
+            self.option_list.highlighted -= 1
 
 
 class DeleteDialog(ModalWithCheat[bool]):
@@ -360,38 +334,6 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
                         )
         yield CheatSheet(self.BINDINGS)
 
-    def action_increase_len(self) -> None:
-        match self.chosen_mode:
-            case "symbols-pane":
-                len = self.query_one("#symbols-len", expect_type=Input)
-                if not len.is_valid:
-                    len.value = str(16)
-                    return
-                len.value = str(int(len.value) + 1)
-            case "words-pane":
-                len = self.query_one("#words-len", expect_type=Input)
-                if not len.is_valid:
-                    len.value = str(5)
-                    return
-                len.value = str(int(len.value) + 1)
-        self.action_regenerate_password()
-
-    def action_decrease_len(self) -> None:
-        match self.chosen_mode:
-            case "symbols-pane":
-                len = self.query_one("#symbols-len", expect_type=Input)
-                if not len.is_valid:
-                    len.value = str(16)
-                    return
-                len.value = str(max(1, int(len.value) - 1))
-            case "words-pane":
-                len = self.query_one("#words-len", expect_type=Input)
-                if not len.is_valid:
-                    len.value = str(5)
-                    return
-                len.value = str(max(1, int(len.value) - 1))
-        self.action_regenerate_password()
-
     @on(Checkbox.Changed)
     def update_alphabet(self) -> None:
         upper = self.query_one("#upper", expect_type=Checkbox).value
@@ -422,8 +364,6 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
         if self.focused is None:
             self.action_leave_and_save()
             return
-
-        self.notify(f"{self.focused.id}")
 
         match self.focused.id:
             case "words-len" | "symbols-len" | "seps":
@@ -501,6 +441,38 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
                 password=password,
             )
         )
+
+    def action_increase_len(self) -> None:
+        match self.chosen_mode:
+            case "symbols-pane":
+                len = self.query_one("#symbols-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(16)
+                    return
+                len.value = str(int(len.value) + 1)
+            case "words-pane":
+                len = self.query_one("#words-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(5)
+                    return
+                len.value = str(int(len.value) + 1)
+        self.action_regenerate_password()
+
+    def action_decrease_len(self) -> None:
+        match self.chosen_mode:
+            case "symbols-pane":
+                len = self.query_one("#symbols-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(16)
+                    return
+                len.value = str(max(1, int(len.value) - 1))
+            case "words-pane":
+                len = self.query_one("#words-len", expect_type=Input)
+                if not len.is_valid:
+                    len.value = str(5)
+                    return
+                len.value = str(max(1, int(len.value) - 1))
+        self.action_regenerate_password()
 
 
 class MoveDialog(ModalWithCheat[Tuple[bool, bool, str]]):

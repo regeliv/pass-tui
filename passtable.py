@@ -16,7 +16,7 @@ from cheatsheet import CheatSheet
 import passutils
 from passutils import PassTuple
 from passrow import PassRow, RowCheckbox
-from screens import (
+from dialogs import (
     DeleteDialog,
     FindScreen,
     MoveDialog,
@@ -81,6 +81,184 @@ class PassTable(DataTable):
 
         self.sort_sync_enumerate()
         self.set_interval(5, self.sort_sync_enumerate)
+
+    def deselect_all(self) -> None:
+        for row in self.all_rows:
+            row.deselect()
+
+        self.force_refresh()
+
+    def delete_selected(self) -> None:
+        selected_rows = list(self.selected_rows)
+        n_fails = 0
+        for row in selected_rows:
+            n_fails += not passutils.rm(row.pass_tuple)
+        if n_fails > 0:
+            self.notify(
+                f"Failed to remove {n_fails} passwords.",
+                title="Removal failure",
+                severity="warning",
+            )
+        else:
+            self.notify("Removal succeeded.", title="Success!")
+
+        passutils.prune()
+        self.sort_sync_enumerate()
+
+    def select(self, pass_str: str) -> None:
+        pass_tuple = PassTuple.from_str(pass_str)
+        for row in self.all_rows:
+            if row.pass_tuple == pass_tuple:
+                print("Matched!")
+
+                self.move_cursor(row=self.get_row_index(row.key))
+                return
+
+    def update_enumeration(self) -> None:
+        for number, row in enumerate(self.ordered_rows, start=1):
+            row.label = Text(str(number), style="#bold", justify="right")
+
+    def force_refresh(self) -> None:
+        """Force refresh table."""
+        # HACK: Without such increment, the table is refreshed
+        # only when focus changes to another column.
+        self._update_count += 1
+        self.refresh()
+
+    def sync(self) -> None:
+        new_passes = passutils.get_categorized_passwords()
+        synced_passes = []
+        old_passes = list(self.all_rows)
+        i, j = 0, 0
+
+        old_cursor = self.cursor_row
+        cursor_diff = 0
+
+        while i < len(new_passes) and j < len(old_passes):
+            new_tuple = new_passes[i]
+            old_pass = old_passes[j]
+
+            if new_tuple < old_pass.pass_tuple:
+                synced_passes.append((RowCheckbox(), *new_tuple))
+                i += 1
+                cursor_diff += 1
+            elif new_tuple > old_pass.pass_tuple:
+                j += 1
+                cursor_diff -= 1
+            else:
+                synced_passes.append((old_pass.checkbox, *new_tuple))
+                i += 1
+                j += 1
+
+        while i < len(new_passes):
+            synced_passes.append((RowCheckbox(), *new_passes[i]))
+            i += 1
+
+        self.clear()
+        for row in synced_passes:
+            self.add_row(*row)
+
+        self.move_cursor(row=old_cursor + cursor_diff)
+
+    def insert(self, new_entry: NewEntryTuple):
+        pass_tuple = PassTuple.from_str(os.path.join(new_entry.prof_cat, new_entry.url))
+
+        if passutils.passcli_insert(pass_tuple, new_entry.username, new_entry.password):
+            success = 1
+        else:
+            success = 0
+
+        if success:
+            self.notify(
+                "Password insertion succeeded.",
+                title="Success!",
+            )
+        else:
+            self.notify(
+                "Password insertion failed.",
+                title="Insertion failure",
+                severity="error",
+            )
+
+        self.sort_sync_enumerate()
+        if success:
+            self.select(str(pass_tuple))
+
+    def move(self, dst: str, keep_cats: bool) -> None:
+        change_list_rows: list[PassRow] = list(self.selected_rows)
+        if passutils.move_has_conflicts(self.selected_tuples, dst, keep_cats):
+            self.notify(
+                "Conflicts detected, resolve them before moving.",
+                title="Failed to move passwords",
+                severity="error",
+            )
+            return
+
+        n_fails = 0
+
+        # code repetition to avoid ckecking keep_cats in each iteration
+        if keep_cats:
+            for row in change_list_rows:
+                _, cats, url = row.pass_tuple
+                ok = passutils.move(
+                    row.pass_tuple,
+                    os.path.join(dst, cats),
+                )
+                n_fails += not ok
+                if ok:
+                    row.update(PassTuple.from_str(os.path.join(dst, cats, url)))
+        else:
+            for row in change_list_rows:
+                _, cats, url = row.pass_tuple
+                ok = passutils.move(row.pass_tuple, dst)
+                n_fails += not ok
+                if ok:
+                    row.update(PassTuple.from_str(os.path.join(dst, url)))
+
+        self.sort_sync_enumerate()
+
+        if n_fails == 0:
+            self.notify("Move succeeded.", title="Success!")
+        else:
+            self.notify(
+                f"Failed to move {n_fails} password(s).",
+                title="Partial Failure",
+                severity="warning",
+            )
+
+        passutils.prune()
+        self.sort_sync_enumerate()
+
+    @property
+    def current_row(self) -> PassRow:
+        key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
+        return PassRow(key=key, table=self)
+
+    @property
+    def all_rows(self) -> Iterator[PassRow]:
+        return map(lambda row: PassRow(table=self, key=row.key), self.ordered_rows)
+
+    @property
+    def selected_rows(self) -> Iterator[PassRow]:
+        count = 0
+        for row in self.all_rows:
+            if row.is_selected:
+                count += 1
+                yield row
+
+        if count == 0:
+            yield self.current_row
+
+    @property
+    def selected_tuples(self) -> Iterator[PassTuple]:
+        count = 0
+        for row in self.all_rows:
+            if row.is_selected:
+                count += 1
+                yield row.pass_tuple
+
+        if count == 0:
+            yield self.current_row.pass_tuple
 
     def action_escape(self) -> None:
         try:
@@ -222,12 +400,6 @@ class PassTable(DataTable):
         with self.app.suspend():
             passutils.passcli_edit(self.current_row.pass_tuple)
 
-    def deselect_all(self) -> None:
-        for row in self.all_rows:
-            row.deselect()
-
-        self.force_refresh()
-
     def action_select_all(self) -> None:
         for row in self.all_rows:
             row.select()
@@ -285,168 +457,3 @@ class PassTable(DataTable):
 
         self.current_row.toggle()
         self.force_refresh()
-
-    def delete_selected(self) -> None:
-        selected_rows = list(self.selected_rows)
-        n_fails = 0
-        for row in selected_rows:
-            n_fails += not passutils.rm(row.pass_tuple)
-        if n_fails > 0:
-            self.notify(
-                f"Failed to remove {n_fails} passwords.",
-                title="Removal failure",
-                severity="warning",
-            )
-        else:
-            self.notify("Removal succeeded.", title="Success!")
-
-        passutils.prune()
-        self.sort_sync_enumerate()
-
-    def select(self, pass_str: str) -> None:
-        pass_tuple = PassTuple.from_str(pass_str)
-        for row in self.all_rows:
-            if row.pass_tuple == pass_tuple:
-                print("Matched!")
-
-                self.move_cursor(row=self.get_row_index(row.key))
-                return
-
-    def update_enumeration(self) -> None:
-        for number, row in enumerate(self.ordered_rows, start=1):
-            row.label = Text(str(number), style="#bold", justify="right")
-
-    def force_refresh(self) -> None:
-        """Force refresh table."""
-        # HACK: Without such increment, the table is refreshed
-        # only when focus changes to another column.
-        self._update_count += 1
-        self.refresh()
-
-    def sync(self) -> None:
-        new_passes = passutils.get_categorized_passwords()
-        synced_passes = []
-        old_passes = list(self.all_rows)
-        i, j = 0, 0
-
-        old_cursor = self.cursor_row
-        cursor_diff = 0
-
-        while i < len(new_passes) and j < len(old_passes):
-            new_tuple = new_passes[i]
-            old_pass = old_passes[j]
-
-            if new_tuple < old_pass.pass_tuple:
-                synced_passes.append((RowCheckbox(), *new_tuple))
-                i += 1
-                cursor_diff += 1
-            elif new_tuple > old_pass.pass_tuple:
-                j += 1
-                cursor_diff -= 1
-            else:
-                synced_passes.append((old_pass.checkbox, *new_tuple))
-                i += 1
-                j += 1
-
-        while i < len(new_passes):
-            synced_passes.append((RowCheckbox(), *new_passes[i]))
-            i += 1
-
-        self.clear()
-        for row in synced_passes:
-            self.add_row(*row)
-
-        self.move_cursor(row=old_cursor + cursor_diff)
-
-    def insert(self, new_entry: NewEntryTuple):
-        pass_tuple = PassTuple.from_str(os.path.join(new_entry.prof_cat, new_entry.url))
-
-        if passutils.passcli_insert(pass_tuple, new_entry.username, new_entry.password):
-            self.notify(
-                "Password insertion succeeded.",
-                title="Success!",
-            )
-        else:
-            self.notify(
-                "Password insertion failed.",
-                title="Insertion failure",
-                severity="error",
-            )
-
-        self.sort_sync_enumerate()
-
-    def move(self, dst: str, keep_cats: bool) -> None:
-        change_list_rows: list[PassRow] = list(self.selected_rows)
-        if passutils.move_has_conflicts(self.selected_tuples, dst, keep_cats):
-            self.notify(
-                "Conflicts detected, resolve them before moving.",
-                title="Failed to move passwords",
-                severity="error",
-            )
-            return
-
-        n_fails = 0
-
-        # code repetition to avoid ckecking keep_cats in each iteration
-        if keep_cats:
-            for row in change_list_rows:
-                _, cats, url = row.pass_tuple
-                ok = passutils.move(
-                    row.pass_tuple,
-                    os.path.join(dst, cats),
-                )
-                n_fails += not ok
-                if ok:
-                    row.update(PassTuple.from_str(os.path.join(dst, cats, url)))
-        else:
-            for row in change_list_rows:
-                _, cats, url = row.pass_tuple
-                ok = passutils.move(row.pass_tuple, dst)
-                n_fails += not ok
-                if ok:
-                    row.update(PassTuple.from_str(os.path.join(dst, url)))
-
-        self.sort_sync_enumerate()
-
-        if n_fails == 0:
-            self.notify("Move succeeded.", title="Success!")
-        else:
-            self.notify(
-                f"Failed to move {n_fails} password(s).",
-                title="Partial Failure",
-                severity="warning",
-            )
-
-        passutils.prune()
-        self.sort_sync_enumerate()
-
-    @property
-    def current_row(self) -> PassRow:
-        key = self.coordinate_to_cell_key(self.cursor_coordinate).row_key
-        return PassRow(key=key, table=self)
-
-    @property
-    def all_rows(self) -> Iterator[PassRow]:
-        return map(lambda row: PassRow(table=self, key=row.key), self.ordered_rows)
-
-    @property
-    def selected_rows(self) -> Iterator[PassRow]:
-        count = 0
-        for row in self.all_rows:
-            if row.is_selected:
-                count += 1
-                yield row
-
-        if count == 0:
-            yield self.current_row
-
-    @property
-    def selected_tuples(self) -> Iterator[PassTuple]:
-        count = 0
-        for row in self.all_rows:
-            if row.is_selected:
-                count += 1
-                yield row.pass_tuple
-
-        if count == 0:
-            yield self.current_row.pass_tuple

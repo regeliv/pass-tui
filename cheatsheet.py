@@ -49,22 +49,12 @@ class CheatSheet(DataTable):
         rows = 5
 
         cols = math.ceil(l / rows)
-        print(f"{l} {cols}")
         for _ in range(cols):
             self.add_column(Text("Key", justify="right"))
             self.add_column("Action")
 
-        full_rows = l % rows
-        if full_rows == 0:
-            full_rows = rows
-
-        idx = 0
-        for i in range(full_rows):
-            lists_of_binds.append(filtered_binds[idx : idx + cols])
-            idx += cols
-        for i in range(full_rows, rows):
-            lists_of_binds.append(filtered_binds[idx : idx + cols - 1])
-            idx += cols - 1
+        for i in range(rows):
+            lists_of_binds.append(filtered_binds[i::rows])
 
         for binding_group in lists_of_binds:
             pairs = map(

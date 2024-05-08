@@ -12,10 +12,10 @@ class RowCheckbox:
     checked: bool = False
 
     def __str__(self) -> str:
-        return "■" if self.checked else ""
+        return "◌" if self.checked else ""
 
     def __rich__(self) -> str:
-        return "[b]■[/]" if self.checked else ""
+        return "[b]◌[/]" if self.checked else ""
 
     def toggle(self) -> None:
         self.checked = not self.checked

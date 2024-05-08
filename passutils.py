@@ -152,16 +152,16 @@ def get_categorized_passwords() -> list[PassTuple]:
 
 def get_rand_password(alphabet: str, n: int) -> str:
     # I quite dislike this, because there will be most likely
-    # be plenty of copies
+    # be plenty of copies left in memory
     password = "".join([secrets.choice(alphabet) for _ in range(n)])
     return password
 
 
 def get_rand_passphrase(n: int, separators: str) -> str:
     # I quite dislike this, because there will be most likely
-    # be plenty of copies
+    # be plenty of copies left in memory
     passphrase = ""
-    with open("eff_large.wordlist", "r") as word_list:
+    with open("dictionaries/eff_large.wordlist", "r") as word_list:
         words = word_list.readlines()
 
         if len(separators) > 0:
@@ -195,10 +195,6 @@ def move_has_conflicts(
     if not os.path.exists(path):
         return False
 
-    # move function will error on malicious user anyway
-    # if not os.path.isdir(path):
-    #     return True
-
     if keep_cats:
         for profile, cats, url in pass_tuples:
             url_path = os.path.join(path, profile, cats, url + ".gpg")
@@ -218,7 +214,6 @@ def move(pass_tuple: PassTuple, dst: str) -> bool:
     """Moves the file corresponding to pass_tuple to dst path in the pass store
     returns True on success, False on failure
     """
-    # TODO: delete directory if it was left empty
     try:
         os.makedirs(dst_to_fs_path(dst), exist_ok=True)
     except:
@@ -261,8 +256,6 @@ def rename(pass_tuple: PassTuple, new_name: str) -> bool:
 
 
 def passcli_copy(pass_tuple: PassTuple, n: int) -> int:
-    # passing env to ensure local shell vars are passed
-    # popen allows to easily capture stderr and stdout
     p = subprocess.run(
         ["pass", "show", f"-c{n}", str(pass_tuple)],
         text=True,
