@@ -134,12 +134,17 @@ FindScreen {
 DeleteDialog {
     align: center middle;
 
+    #dialog {
+        height: auto; 
+    }
+
     #entry-list {
         scrollbar-color: $accent;
         scrollbar-color-hover: $cursor;
         scrollbar-color-active: $cursor;
         column-span: 2;
-        height: 5fr;
+        height: auto;
+        max-height: 10;
         width: 1fr;
         border: $border;
     }
@@ -147,7 +152,7 @@ DeleteDialog {
     #warning {
         color: $error;
         column-span: 2;
-        height: 1fr;
+        height: auto;
         width: 1fr;
         content-align: center middle;
     }
@@ -194,9 +199,14 @@ NewEntryDialog {
 MoveDialog {
     align: center middle;
 
+    #dialog {
+        height: auto; 
+    }
+
     #entry-list {
         column-span: 2;
-        height: 5fr;
+        height: auto;
+        max-height: 10;
         width: 1fr;
         border: $border;
 
