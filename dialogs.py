@@ -20,11 +20,16 @@ from validators import *
 
 
 class ModalWithCheat(ModalScreen[ScreenResultType]):
+    """ModalScreen with the CheatSheet widget and
+    its binding included.
+    """
+
     BINDINGS = [
         Binding("ctrl+t", "toggle_help", "Toggle help", priority=True),
     ]
 
     def action_toggle_help(self):
+        """Toggle cheatsheet."""
         try:
             cheatsheet = self.query_one(CheatSheet)
             cheatsheet.remove()
@@ -33,6 +38,10 @@ class ModalWithCheat(ModalScreen[ScreenResultType]):
 
 
 class VimVerticalScroll(VerticalScroll):
+    """VerticalScroll with vim keybinds for moving up
+    and down.
+    """
+
     BINDINGS = [
         Binding("j", "scroll_down", "Scroll one line down"),
         Binding("k", "scroll_up", "Scroll one line up"),
@@ -40,6 +49,15 @@ class VimVerticalScroll(VerticalScroll):
 
 
 class RenameDialog(ModalWithCheat[str | None]):
+    """A dialog allowing user to rename one password,
+    possibly moving it into a directory.
+
+    Attributes:
+        password: a PassTuple of the password being renamed.
+        prof_cat: the profile and category fields of the PassTuple
+        squashed into one string.
+    """
+
     BINDINGS = ModalWithCheat.BINDINGS + [
         Binding("escape", "exit", "Exit", priority=True, key_display="<esc>"),
         Binding(
@@ -84,14 +102,17 @@ class RenameDialog(ModalWithCheat[str | None]):
 
     @on(Input.Changed)
     def update_destination(self) -> None:
+        """Update the string showing the result of the rename."""
         dst = self.query_one("#destination", expect_type=Static)
         user_input = self.query_one(Input).value
         dst.update(f"{self.prof_cat}[b]{user_input}[/]")
 
     def action_exit(self) -> None:
+        """Leave dialog without making the rename."""
         self.dismiss(None)
 
     def action_rename_and_exit(self) -> None:
+        """Leave the dialog and rename the password."""
         user_input = self.query_one(Input)
         if not user_input.is_valid:
             self.notify("Invalid destination.", title="Rename fail!", severity="error")
@@ -101,11 +122,17 @@ class RenameDialog(ModalWithCheat[str | None]):
 
 
 class FindScreen(ModalScreen[str]):
+    """Fuzzy finder widget for the passwords in the pass store.
+
+    Attributes:
+        rows: a list of passwords as relative path strings, that is to be searched
+    """
+
     BINDINGS = [
-        Binding("escape", "leave", "Exit dialog"),
+        Binding("escape", "quit", "Exit dialog"),
+        Binding("enter", "select_and_quit", priority=True),
         Binding("down", "down", "Move", priority=True),
         Binding("up", "up", "", priority=True),
-        Binding("enter", "select_and_leave", priority=True),
     ]
 
     rows: list[str]
@@ -122,6 +149,9 @@ class FindScreen(ModalScreen[str]):
 
     @cached_property
     def option_list(self) -> OptionList:
+        """The OptionList widget with passwords
+        ranked according to the fuzzy finder algorithm.
+        """
         return self.query_one(OptionList)
 
     def on_mount(self) -> None:
@@ -136,6 +166,7 @@ class FindScreen(ModalScreen[str]):
 
     @on(Input.Changed)
     def regenerate(self) -> None:
+        """Create a new list of ranked passwords."""
         self.option_list.clear_options()
         search_text = self.query_one(Input).value
 
@@ -148,17 +179,8 @@ class FindScreen(ModalScreen[str]):
         self.option_list.add_options(options)
         self.option_list.highlighted = 0
 
-    def action_leave(self) -> None:
-        self.app.pop_screen()
-
-    def action_select_and_leave(self) -> None:
-        option_idx = self.option_list.highlighted
-        # appeasing lsp, will always execute
-        if option_idx is not None:
-            option = str(self.option_list.get_option_at_index(option_idx).prompt)
-            self.dismiss(option)
-
     def action_down(self) -> None:
+        """Move the cursor in the option list down."""
         # We cannot use action_scroll_up here because, we use highlight
         # not selection as the option list is not focusable
 
@@ -166,14 +188,27 @@ class FindScreen(ModalScreen[str]):
             self.option_list.highlighted += 1
 
     def action_up(self) -> None:
+        """Move the cursor in the option list up."""
         if self.option_list.highlighted is not None:
             self.option_list.highlighted -= 1
+
+    def action_quit(self) -> None:
+        """Leave the srceen without making a selection."""
+        self.app.pop_screen()
+
+    def action_select_and_quit(self) -> None:
+        """Leave the screen and select the password to go to."""
+        option_idx = self.option_list.highlighted
+
+        if option_idx is not None:
+            option = str(self.option_list.get_option_at_index(option_idx).prompt)
+            self.dismiss(option)
 
 
 class DeleteDialog(ModalWithCheat[bool]):
     BINDINGS = [
-        Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
-        Binding("enter", "delete", "Delete", key_display="<cr>"),
+        Binding("escape", "quit", "Exit dialog", key_display="<esc>"),
+        Binding("enter", "quit_and_delete", "Delete", key_display="<cr>"),
         Binding("up", "", "Scroll up", key_display="↑"),
         Binding("down", "", "Scroll down", key_display="↓"),
     ] + ModalWithCheat.BINDINGS
@@ -204,14 +239,27 @@ class DeleteDialog(ModalWithCheat[bool]):
             )
         yield CheatSheet(self.BINDINGS)
 
-    def action_leave(self):
+    def action_quit(self):
         self.dismiss(False)
 
-    def action_delete(self):
+    def action_quit_and_delete(self):
         self.dismiss(True)
 
 
 class NewEntryTuple(NamedTuple):
+    """Tuple that is the result of a user quiting the
+    new entry dialog.
+
+    Attributes:
+        create: whether the user chose to create a new password.
+        prof_cat: profile and category fields of a PassTuple squashed
+        into one string.
+        url: the address of the website or, equivalently
+        the file name of the password
+        username: the username that the user entered
+        password: the password that the user chose
+    """
+
     create: bool
     prof_cat: str = ""
     url: str = ""
@@ -220,8 +268,15 @@ class NewEntryTuple(NamedTuple):
 
 
 class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
+    """Dialog allowing the user to create a new password.
+
+    Attributes:
+        alphabet: the alphabet of characters a random
+        password is generated from.
+    """
+
     BINDINGS = [
-        Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
+        Binding("escape", "quit", "Exit dialog", key_display="<esc>"),
         Binding(
             "enter",
             "submit_input",
@@ -232,7 +287,7 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
         Binding("tab", "focus_next", "Next", key_display="<tab>"),
         Binding("shift+tab", "focus_previous", "Previous", key_display="shift+<tab>"),
         Binding(
-            "ctrl+s", "reveal_password", "Show/hide password", key_display="ctrl+s"
+            "ctrl+s", "reveal_hide_password", "Show/hide password", key_display="ctrl+s"
         ),
         Binding(
             "ctrl+r", "regenerate_password", "Regenerate password", key_display="ctrl+r"
@@ -267,10 +322,14 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
 
     @property
     def passfield(self) -> Input:
+        """The Input field containing a password."""
         return self.query_one("#password", expect_type=Input)
 
     @property
     def chosen_mode(self) -> str:
+        """A string that is either "words-pane", or "symbols-pane",
+        corresponding to which password generation tab the user is in.
+        """
         return self.query_one(TabbedContent).active
 
     def on_mount(self) -> None:
@@ -336,6 +395,7 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
 
     @on(Checkbox.Changed)
     def update_alphabet(self) -> None:
+        """Update the alphabet of characters used to generate a password."""
         upper = self.query_one("#upper", expect_type=Checkbox).value
         lower = self.query_one("#lower", expect_type=Checkbox).value
         nums = self.query_one("#nums", expect_type=Checkbox).value
@@ -357,21 +417,28 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
         self.alphabet = new_alphabet
         self.action_regenerate_password()
 
-    def action_reveal_password(self) -> None:
+    def action_reveal_hide_password(self) -> None:
+        """Reveal or hide the password field."""
         self.passfield.password = not self.passfield.password
 
     def action_submit_input(self) -> None:
+        """Sumbit input and either create a new entry or
+        regenerate the password field."""
+
         if self.focused is None:
-            self.action_leave_and_save()
+            self.action_quit_and_new()
             return
 
         match self.focused.id:
             case "words-len" | "symbols-len" | "seps":
                 self.action_regenerate_password()
             case _:
-                self.action_leave_and_save()
+                self.action_quit_and_new()
 
     def action_change_tab(self) -> None:
+        """Change the password creation tab
+        from symbols to words and vice versa
+        """
         tc = self.query_one(TabbedContent)
         choice = self.chosen_mode
         match choice:
@@ -382,6 +449,7 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
 
     @on(TabbedContent.TabActivated)
     def action_regenerate_password(self) -> None:
+        """Generate a new random password or passphrase."""
         choice = self.chosen_mode
         match choice:
             case "symbols-pane":
@@ -390,7 +458,7 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
                     return
                 len = int(len.value)
 
-                self.passfield.value = passutils.get_rand_password(self.alphabet, len)
+                self.passfield.value = passutils.rand_password(self.alphabet, len)
             case "words-pane":
                 len = self.query_one("#words-len", expect_type=Input)
                 if not len.is_valid:
@@ -398,12 +466,14 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
 
                 len = int(len.value)
                 separators = self.query_one("#seps", expect_type=Input).value
-                self.passfield.value = passutils.get_rand_passphrase(len, separators)
+                self.passfield.value = passutils.rand_passphrase(len, separators)
 
-    def action_leave(self):
+    def action_quit(self):
+        """Close dialog without creating a new password."""
         self.dismiss(NewEntryTuple(create=False))
 
-    def action_leave_and_save(self):
+    def action_quit_and_new(self):
+        """Close dialog and create new password."""
         prof_cat = self.query_one("#profile-category", expect_type=Input).value
         username = self.query_one("#username", expect_type=Input).value
 
@@ -443,6 +513,8 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
         )
 
     def action_increase_len(self) -> None:
+        """Increase the length of the randomly
+        generated password or passphrase."""
         match self.chosen_mode:
             case "symbols-pane":
                 len = self.query_one("#symbols-len", expect_type=Input)
@@ -459,6 +531,8 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
         self.action_regenerate_password()
 
     def action_decrease_len(self) -> None:
+        """Decrease the length of the randomly
+        generated password or passphrase."""
         match self.chosen_mode:
             case "symbols-pane":
                 len = self.query_one("#symbols-len", expect_type=Input)
@@ -476,9 +550,15 @@ class NewEntryDialog(ModalWithCheat[NewEntryTuple]):
 
 
 class MoveDialog(ModalWithCheat[Tuple[bool, bool, str]]):
+    """Dialog that allows the user to move many passwords.
+
+    Attributes:
+        rows: rows that slated for the move.
+    """
+
     BINDINGS = [
-        Binding("escape", "leave", "Exit dialog", key_display="<esc>"),
-        Binding("enter", "leave_and_move", "Move", priority=True, key_display="<cr>"),
+        Binding("escape", "quit", "Exit dialog", key_display="<esc>"),
+        Binding("enter", "quit_and_move", "Move", priority=True, key_display="<cr>"),
         Binding("tab", "focus_next", "Next"),
         Binding("shift+tab", "focus_previous", "Previous"),
         Binding("up", "up", "Scroll up", key_display="↑"),
@@ -518,17 +598,21 @@ class MoveDialog(ModalWithCheat[Tuple[bool, bool, str]]):
         vs.can_focus = False
 
     def action_up(self) -> None:
+        """Move cursor in password list up."""
         vs = self.query_one(VerticalScroll)
         vs.action_scroll_up()
 
     def action_down(self) -> None:
+        """Move cursor in password list down."""
         vs = self.query_one(VerticalScroll)
         vs.action_scroll_down()
 
-    def action_leave(self):
+    def action_quit(self):
+        """Quit the dialog without moving the passwords."""
         self.dismiss((False, False, ""))
 
-    def action_leave_and_move(self):
+    def action_quit_and_move(self):
+        """Quit the dialog and move the passwords."""
         user_input = self.query_one(Input)
         if not user_input.is_valid:
             self.notify("Invalid destination.", title="Move failed!", severity="error")

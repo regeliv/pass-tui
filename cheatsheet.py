@@ -7,6 +7,10 @@ import math
 
 
 class CheatSheet(DataTable):
+    """A cheatsheet widgets, shows all bindings
+    that are of the type Binding in a table form.
+    """
+
     bindings: list[BindingType]
 
     def __init__(
@@ -34,6 +38,17 @@ class CheatSheet(DataTable):
 
     @staticmethod
     def bind_to_pair(b: Binding) -> Tuple[Text, Text]:
+        """Convert a Binding to a pair of Text objects
+
+        Args:
+            b: a Binding
+
+        Returns:
+            A tuple of two Text objects, whose first field
+            is the Binding's bolded key_display if it is set,
+            otherwise it is the Binding's key. The second
+            field is the description of the Binding.
+        """
         key_str = b.key_display if b.key_display else b.key
         return (
             Text.from_markup(f"[b]{key_str}[/]", justify="right"),
@@ -41,6 +56,7 @@ class CheatSheet(DataTable):
         )
 
     def add_bindings(self) -> None:
+        """Add bindings, organized in a few columns"""
         filtered_binds: list[Binding] = list(filter(lambda b: type(b) == Binding and b.show, self.bindings))  # type: ignore
 
         l = len(filtered_binds)
@@ -53,8 +69,7 @@ class CheatSheet(DataTable):
             self.add_column(Text("Key", justify="right"))
             self.add_column("Action")
 
-        for i in range(rows):
-            lists_of_binds.append(filtered_binds[i::rows])
+        lists_of_binds = [filtered_binds[i::rows] for i in range(rows)]
 
         for binding_group in lists_of_binds:
             pairs = map(

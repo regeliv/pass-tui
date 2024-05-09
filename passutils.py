@@ -69,11 +69,11 @@ def get_password_clear_time() -> str:
 
 @cache
 def get_passstore_path() -> str:
-    """Returns the path to user's password store
+    """Gets pass store path.
 
     Returns:
         A string corresponding to the absolute path
-        of the user's password store directory
+        of the user's password store
     """
     pass_dir = os.getenv(
         "PASSWORD_STORE_DIR",
@@ -83,7 +83,7 @@ def get_passstore_path() -> str:
 
 
 def passstore_exists() -> bool:
-    """Check for existence of the user's password store
+    """Checks for existence of the user's password store
 
     Returns:
         A bool specifying whether the user's passwords store
@@ -93,7 +93,7 @@ def passstore_exists() -> bool:
 
 
 def is_hidden(path: str) -> bool:
-    """Returns if a file or directory described by a path is hidden.
+    """Checks if a file or directory is hidden.
 
     Args:
         path: Path to a directory or file, does not need actually exist
@@ -139,6 +139,14 @@ def get_passwords() -> list[str]:
 
 
 def categorize_passwords(passwords: list[str]) -> list[PassTuple]:
+    """Converts a list of paths in string form to pass tuples
+
+    Args:
+        passwords: A list of relative password paths
+
+    Returns:
+        A list of PassTuples
+    """
     pass_tuples = []
     for password_path in passwords:
         pass_tuples.append(PassTuple.from_str(password_path))
@@ -147,17 +155,45 @@ def categorize_passwords(passwords: list[str]) -> list[PassTuple]:
 
 
 def get_categorized_passwords() -> list[PassTuple]:
+    """Get a list PassTuples.
+
+    Returns:
+        A list of PassTuples
+    """
     return sorted(categorize_passwords(get_passwords()))
 
 
-def get_rand_password(alphabet: str, n: int) -> str:
+def rand_password(alphabet: str, n: int) -> str:
+    """Generate a randomv password
+
+    Args:
+        alphabet: the alphabet of characters to
+        generate the password pass.
+        n:
+
+    Returns:
+
+    """
     # I quite dislike this, because there will be most likely
     # be plenty of copies left in memory
     password = "".join([secrets.choice(alphabet) for _ in range(n)])
     return password
 
 
-def get_rand_passphrase(n: int, separators: str) -> str:
+def rand_passphrase(n: int, separators: str) -> str:
+    """Generate random passphrase, optionally with
+    separators in between words.
+
+    Args:
+        n: number of words in passphrase
+        separators: a string of separators, between
+        each word will be a character randomly chosen
+        from this string. Can be empty to disable
+        separators.
+
+    Returns:
+        A random passphrase with seperators in between.
+    """
     # I quite dislike this, because there will be most likely
     # be plenty of copies left in memory
     passphrase = ""
@@ -180,15 +216,35 @@ def get_rand_passphrase(n: int, separators: str) -> str:
 
 @cache
 def dst_to_fs_path(dst: str) -> str:
+    """Convert relative path of a directory to filesystem
+
+    Args:
+        dst: relative path to a directory in pass store
+
+    Returns:
+        the filesystem path of the directory
+    """
     return os.path.join(get_passstore_path(), dst)
 
 
 def move_has_conflicts(
     pass_tuples: Iterable[PassTuple], dst: str, keep_cats: bool
 ) -> bool:
-    """Returns true if a move of the following passwords would result in a conflict
-    Move will result in a conflict if the directory or file with the same name
-    exists
+    """Check if move have conflicts.
+
+    Args:
+        pass_tuples: An iterable of PassTuples that
+        would be mobved
+        dst: the destination directory of passworda
+        keep_cats: whether the categories are to be preserved
+        during the move
+
+    Returns:
+        True if the no conflicts would occur, False
+        if they would i.e there exists a file at that path
+        or any directory that is in the dst path is
+        actually a file
+
     """
     path = os.path.join(get_passstore_path(), dst)
 
@@ -211,8 +267,15 @@ def move_has_conflicts(
 
 
 def move(pass_tuple: PassTuple, dst: str) -> bool:
-    """Moves the file corresponding to pass_tuple to dst path in the pass store
-    returns True on success, False on failure
+    """Move a password
+
+    Args:
+        pass_tuple: a PassTuple of the password
+        dst: new relative directory path, can be empty
+        to place a password in root
+
+    Returns:
+        True if move succeeded, False if it failed.
     """
     try:
         os.makedirs(dst_to_fs_path(dst), exist_ok=True)
@@ -227,6 +290,14 @@ def move(pass_tuple: PassTuple, dst: str) -> bool:
 
 
 def rm(pass_tuple: PassTuple) -> bool:
+    """Removes a password from pass store.
+
+    Args:
+        pass_tuple: A tuple corresponding to a password
+
+    Returns:
+        True if removal succedeed, False if it failed
+    """
     try:
         os.remove(pass_tuple.fs_path)
         return True
@@ -235,6 +306,9 @@ def rm(pass_tuple: PassTuple) -> bool:
 
 
 def prune() -> None:
+    """Prune directories that are empty.
+    Useful after moves and deletes.
+    """
     for root, dirs, files in os.walk(get_passstore_path(), topdown=False):
         if not is_hidden(root) and os.path.isdir(root) and not os.listdir(root):
             print(root)
@@ -245,6 +319,17 @@ def prune() -> None:
 
 
 def rename(pass_tuple: PassTuple, new_name: str) -> bool:
+    """Renames a password.
+
+    Args:
+        pass_tuple: a PassTuple corresponding to the
+        password to rename
+
+        new_name: a new name for the password
+
+    Returns:
+        True if rename operation succeeded, False if it failed
+    """
     try:
         old_path = pass_tuple.fs_path
         new_path = os.path.join(pass_tuple.profile, pass_tuple.cats, new_name + ".gpg")
@@ -255,7 +340,16 @@ def rename(pass_tuple: PassTuple, new_name: str) -> bool:
         return False
 
 
-def passcli_copy(pass_tuple: PassTuple, n: int) -> int:
+def passcli_copy(pass_tuple: PassTuple, n: int) -> bool:
+    """Copy a password or other line to clipboard.
+
+    Args:
+        pass_tuple: a PassTuple of the password to copy.
+        n: the line to copy, 1 for password, 2 for username
+
+    Returns:
+        True if operation copy succeeded, False if it failed
+    """
     p = subprocess.run(
         ["pass", "show", f"-c{n}", str(pass_tuple)],
         text=True,
@@ -263,16 +357,28 @@ def passcli_copy(pass_tuple: PassTuple, n: int) -> int:
         stderr=subprocess.DEVNULL,
     )
 
-    return p.returncode
+    return p.returncode == 0
 
 
 def passcli_edit(pass_tuple: PassTuple) -> None:
+    """Launches the user's editor to edit the password.
+
+    Args:
+        pass_tuple: a PassTuple of the password.
+    """
     subprocess.run(["pass", "edit", str(pass_tuple)])
 
 
 def passcli_insert(pass_tuple: PassTuple, username: str, password: str) -> bool:
-    """Creates a file corresponding to the pass_tuple
-    with password as the first line and username as second
+    """Creates pas
+
+    Args:
+        pass_tuple: a PassTuple of the password
+        username: a string to be inserted as the second field
+        password: a string to be inserted as the first field
+
+    Returns:
+        True if insertion succeeded, False if it failed.
     """
     target_path = pass_tuple.fs_path
     if os.path.exists(target_path):
@@ -289,7 +395,6 @@ def passcli_insert(pass_tuple: PassTuple, username: str, password: str) -> bool:
     else:
         p.communicate(bytes(password + "\n", "utf-8"))
 
-    # appeasing lsp
     if p.stdin:
         p.stdin.close()
 

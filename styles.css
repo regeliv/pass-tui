@@ -160,6 +160,13 @@ DeleteDialog {
 
 NewEntryDialog {
     align: center middle;
+    scrollbar-background: $surface;
+    scrollbar-background-hover: $surface;
+    scrollbar-background-active: $surface;
+    scrollbar-color: $surface;
+    scrollbar-color-active: $surface;
+    scrollbar-color-hover: $surface;
+    scrollbar-corner-color: $surface;
 
     #dialog {
         height: 28; 
