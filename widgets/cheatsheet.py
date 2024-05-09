@@ -62,7 +62,7 @@ class CheatSheet(DataTable):
         l = len(filtered_binds)
         lists_of_binds = []
 
-        rows = 5
+        rows = 7
 
         cols = math.ceil(l / rows)
         for _ in range(cols):
