@@ -9,11 +9,9 @@ from textual.widgets import DataTable
 import os
 from typing import Iterator
 
-from cheatsheet import CheatSheet
-import passutils
-from passutils import PassTuple
-from passrow import PassRow, RowCheckbox
-from dialogs import (
+from widgets.cheatsheet import CheatSheet
+from widgets.passrow import PassRow, RowCheckbox
+from widgets.dialogs import (
     DeleteDialog,
     FindScreen,
     MoveDialog,
@@ -21,6 +19,9 @@ from dialogs import (
     NewEntryTuple,
     RenameDialog,
 )
+
+import passutils
+from passutils import PassTuple
 
 
 class PassTable(DataTable):

@@ -6,7 +6,7 @@ from textual.widget import Widget
 from textual.widgets import Placeholder, Static
 from rich.text import Text
 
-from passtable import PassTable
+from widgets.passtable import PassTable
 
 
 class Header(Widget):

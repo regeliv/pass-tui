@@ -11,12 +11,14 @@ from textual.css.query import NoMatches
 from textual.screen import ModalScreen, ScreenResultType
 from textual.validation import Length, Number
 from textual.widgets import Checkbox, Input, OptionList, Static, TabPane, TabbedContent
-from cheatsheet import CheatSheet
-from passrow import PassRow
+
+from widgets.cheatsheet import CheatSheet
+from widgets.passrow import PassRow
+from widgets.validators import *
+
 from passutils import PassTuple
 import passutils
 import os
-from validators import *
 
 
 class ModalWithCheat(ModalScreen[ScreenResultType]):
