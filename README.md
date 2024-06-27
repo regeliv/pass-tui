@@ -4,7 +4,7 @@ OS compatibility: any UNIX that you can run pass and a modern terminal on should
 
 # Sleek, modern look
 ![](images/app.png)
-# Creating new passwords like in keppass
+# Creating new passwords like in Keepass
 ![](images/new.png)
 # Deleting passwords
 ![](images/delete.png)
